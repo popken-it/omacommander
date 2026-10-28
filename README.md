@@ -38,7 +38,7 @@ omarchy plugin enable popkenr.omancommander
 Or publish the repo and install it the normal way:
 
 ```bash
-omarchy plugin add https://github.com/popken-it/omancommander.git
+omarchy plugin add https://github.com/popken-it/omacommander.git
 omarchy plugin enable popkenr.omancommander
 ```
 
