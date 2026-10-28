@@ -67,7 +67,7 @@ Item {
   property int activePane: 0
   property bool split: true
   property bool sidebarVisible: true
-  property string viewMode: "grid"
+  property string viewMode: "list"
   property string sortMode: "name"
   property bool sortAsc: true
   property bool showHidden: false

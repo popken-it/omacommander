@@ -13,7 +13,7 @@ Item {
   property var service: null
   property bool active: false
   property bool splitMode: false
-  property string viewMode: "grid"
+  property string viewMode: "list"
   property string sortMode: "name"
   property bool sortAsc: true
   property bool showHidden: false
