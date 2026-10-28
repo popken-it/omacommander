@@ -74,6 +74,7 @@ Other keys:
 | `Ctrl+F` or just typing | Search this folder and below |
 | `Esc` | Clear search/menu/dialog/viewer, otherwise close |
 | `Ctrl+H` | Show hidden files |
+| `Ctrl+D` | Add the current folder to Places |
 | `Ctrl+R` | Reload |
 | `Ctrl+A` | Select all |
 | `Ctrl+C` / `Ctrl+X` / `Ctrl+V` | Copy / cut / paste |
@@ -98,6 +99,10 @@ highlighted. The other pane can be driven with the mouse or with Tab first.
 
 - Sidebar with Home, XDG folders, Trash, Computer, and removable volumes under
   `/run/media/<user>` and `/media/<user>`.
+- Add any folder to the sidebar with *Add This Folder to Places* (`Ctrl+D`) or
+  by right-clicking a folder. Saved places persist between sessions; hover a
+  saved place and click `✕` to remove it. They live in
+  `$XDG_STATE_HOME/omarchy/files-places.json`.
 - Nautilus layout: header bar, breadcrumbs that scroll to the deepest segment,
   icon grid with image thumbnails, list view with sortable columns, status bar
   with item/selection size and free space.
@@ -123,7 +128,7 @@ Kept out to keep this one process, no extra dependencies, and no risky magic:
   400 results or 20 seconds.
 - The lister shows text, a hex dump for binaries, and images. PDF, video,
   archives and office documents still go to `xdg-open`.
-- State (open folders) lasts for the shell session, not across restarts.
+- Open folders last for the shell session; saved Places persist across restarts.
 
 ## Backend and tests
 

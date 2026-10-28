@@ -114,7 +114,9 @@ class FilesdTest(unittest.TestCase):
         os.makedirs(self.config)
         self.env = dict(os.environ)
         self.env.update({"HOME": self.home, "XDG_DATA_HOME": self.data,
-                         "XDG_CONFIG_HOME": self.config, "PYTHONUNBUFFERED": "1"})
+                         "XDG_CONFIG_HOME": self.config,
+                         "XDG_STATE_HOME": os.path.join(self.tmp, "state"),
+                         "PYTHONUNBUFFERED": "1"})
         self.make("Documents", dir=True)
         self.make("note.txt", "hello")
         self.make("pic.png", "png")
@@ -163,6 +165,49 @@ class FilesdTest(unittest.TestCase):
         self.assertIn("Documents", labels)
         self.assertIn("Trash", labels)
         self.assertEqual(event["places"][0]["path"], self.home)
+        self.assertEqual(event["bookmarks"], [])
+
+    def test_bookmark_add_persist_and_remove(self):
+        target = self.make("Projects", dir=True)
+        ident = self.next_id()
+        self.client.send(op="bookmarkAdd", id=ident, path=target)
+        event = self.client.wait("bookmarks", ident)
+        self.assertTrue(event["ok"], event)
+        self.assertEqual([b["path"] for b in event["bookmarks"]], [target])
+        self.assertEqual(event["bookmarks"][0]["label"], "Projects")
+
+        ident = self.next_id()
+        self.client.send(op="bookmarkAdd", id=ident, path=target)
+        event = self.client.wait("bookmarks", ident)
+        self.assertFalse(event["ok"])
+
+        stored = os.path.join(self.tmp, "state", "omarchy", "files-places.json")
+        with open(stored, encoding="utf-8") as handle:
+            self.assertEqual(json.load(handle), [target])
+
+        ident = self.next_id()
+        self.client.send(op="places", id=ident)
+        event = self.client.wait("places", ident)
+        self.assertEqual([b["path"] for b in event["bookmarks"]], [target])
+
+        ident = self.next_id()
+        self.client.send(op="bookmarkRemove", id=ident, path=target)
+        event = self.client.wait("bookmarks", ident)
+        self.assertTrue(event["ok"], event)
+        self.assertEqual(event["bookmarks"], [])
+        with open(stored, encoding="utf-8") as handle:
+            self.assertEqual(json.load(handle), [])
+
+    def test_bookmark_rejects_files_and_standard_places(self):
+        ident = self.next_id()
+        self.client.send(op="bookmarkAdd", id=ident, path=os.path.join(self.home, "note.txt"))
+        event = self.client.wait("bookmarks", ident)
+        self.assertFalse(event["ok"])
+
+        ident = self.next_id()
+        self.client.send(op="bookmarkAdd", id=ident, path=self.home)
+        event = self.client.wait("bookmarks", ident)
+        self.assertFalse(event["ok"])
 
     def test_listing_kinds_hidden_and_parent(self):
         event = self.listing()

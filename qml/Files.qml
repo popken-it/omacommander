@@ -89,6 +89,7 @@ Item {
   property real menuX: 0
   property real menuY: 0
   property var menuItems: []
+  property string menuEntryPath: ""
   readonly property int menuWidth: Style.space(252)
 
   property string toastText: ""
@@ -422,6 +423,19 @@ Item {
     backend.request("props", { path: entry.path })
   }
 
+  function addToPlaces(path) {
+    var target = String(path || currentPane().path)
+    if (target === trashPath) {
+      showToast("Trash cannot be added to Places", true)
+      return
+    }
+    backend.request("bookmarkAdd", { path: target })
+  }
+
+  function removeBookmark(path) {
+    backend.request("bookmarkRemove", { path: path })
+  }
+
   function openHelp() {
     openDialog("help", "Function keys — Total Commander style", "",
                [{ label: "Close", action: "close" }], false)
@@ -447,6 +461,7 @@ Item {
       { key: "Ctrl+L", text: "Type a location" },
       { key: "Ctrl+F", text: "Search this folder and below" },
       { key: "Ctrl+H", text: "Show hidden files" },
+      { key: "Ctrl+D", text: "Add this folder to Places" },
       { key: "Ctrl+R", text: "Reload" },
       { key: "Delete", text: "Move to Trash" },
       { key: "Shift+Delete", text: "Delete permanently" }
@@ -612,6 +627,7 @@ Item {
   }
 
   function openAppMenu() {
+    menuEntryPath = ""
     menuItems = appMenuItems()
     menuX = Math.max(Style.space(8), card.width - menuWidth - Style.space(8))
     menuY = headerHeight + Style.space(4)
@@ -623,6 +639,7 @@ Item {
     var entry = pane.items[index]
     if (!entry) return
     if (!pane.isSelected(entry.path)) pane.selectOnly(index)
+    menuEntryPath = entry.dir ? entry.path : ""
     menuItems = fileMenuItems(pane)
     showMenuAt(pane.mapToItem(card, x, y))
   }
@@ -633,6 +650,7 @@ Item {
     var pane = currentPane()
     var items = [
       { label: "New Folder", shortcut: "Ctrl+Shift+N", action: "mkdir" },
+      { label: "Add This Folder to Places", shortcut: "Ctrl+D", action: "addPlace" },
       { label: "Paste", shortcut: "Ctrl+V", action: "paste" },
       sep(),
       { label: "Select All", shortcut: "Ctrl+A", action: "selectAll" },
@@ -658,6 +676,8 @@ Item {
     var entry = pane.cursorEntry()
     if (!entry) return appMenuItems()
     var items = [{ label: "Open", shortcut: "Enter", action: "open" }]
+    if (entry.dir && !pane.trash)
+      items.push({ label: "Add to Places", shortcut: "Ctrl+D", action: "addPlace" })
     if (pane.trash) {
       items.push({ label: "Restore", action: "restore" })
     }
@@ -694,6 +714,7 @@ Item {
     case "openOther": openInOtherPane(); break
     case "restore": restoreSelection(); break
     case "mkdir": openMkdir(); break
+    case "addPlace": addToPlaces(menuEntryPath || currentPane().path); break
     case "rename": openRename(); break
     case "trash": trashSelection(); break
     case "delete": confirmDelete(); break
@@ -886,6 +907,7 @@ Item {
     if (ctrl && key === Qt.Key_F) { openSearch(""); event.accepted = true; return }
     if (ctrl && key === Qt.Key_L) { openLocation(); event.accepted = true; return }
     if (ctrl && key === Qt.Key_H) { toggleHidden(); event.accepted = true; return }
+    if (ctrl && key === Qt.Key_D) { addToPlaces(currentPane().path); event.accepted = true; return }
     if (ctrl && key === Qt.Key_A) { pane.selectAll(); event.accepted = true; return }
     if (ctrl && key === Qt.Key_C) { copySelection("copy"); event.accepted = true; return }
     if (ctrl && key === Qt.Key_X) { copySelection("cut"); event.accepted = true; return }
@@ -944,6 +966,10 @@ Item {
     onPlacesReady: function(data) {
       if (paneA.path === "") paneA.ensure(data.home || root.home)
       if (paneB.path === "") paneB.ensure(data.home || root.home)
+    }
+
+    onBookmarksReady: function(data) {
+      if (data.message) root.showToast(String(data.message), data.ok === false)
     }
 
     onListing: function(data) {
@@ -1438,6 +1464,91 @@ Item {
                   hoverEnabled: true
                   cursorShape: Qt.PointingHandCursor
                   onClicked: root.choosePath(placeRow.modelData.path)
+                }
+              }
+            }
+
+            Text {
+              width: parent.width
+              height: backend.bookmarks.length > 0 ? Style.space(30) : 0
+              visible: backend.bookmarks.length > 0
+              leftPadding: Style.space(8)
+              topPadding: Style.space(8)
+              text: "Saved"
+              color: Util.alpha(root.ink, 0.5)
+              font.family: "sans-serif"
+              font.pixelSize: Style.font.caption
+              font.weight: Font.DemiBold
+            }
+
+            Repeater {
+              model: backend.bookmarks
+
+              delegate: Item {
+                id: bookmarkRow
+                required property var modelData
+
+                width: sidebarColumn.width
+                height: Style.space(30)
+                readonly property bool current: root.currentPane().path === modelData.path
+
+                Rectangle {
+                  anchors.fill: parent
+                  anchors.topMargin: 1
+                  anchors.bottomMargin: 1
+                  radius: Style.space(6)
+                  color: bookmarkRow.current ? root.selectedBg
+                                             : (bookmarkMouse.containsMouse ? root.hoverBg : "transparent")
+                }
+
+                Image {
+                  x: Style.space(8)
+                  anchors.verticalCenter: parent.verticalCenter
+                  width: Style.space(16)
+                  height: Style.space(16)
+                  source: Quickshell.iconPath(bookmarkRow.modelData.icon, true)
+                  fillMode: Image.PreserveAspectFit
+                }
+
+                Text {
+                  anchors.left: parent.left
+                  anchors.leftMargin: Style.space(32)
+                  anchors.right: parent.right
+                  anchors.rightMargin: Style.space(26)
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: bookmarkRow.modelData.label
+                  textFormat: Text.PlainText
+                  elide: Text.ElideRight
+                  color: bookmarkRow.current ? root.accent : root.ink
+                  font.family: "sans-serif"
+                  font.pixelSize: Style.font.body
+                }
+
+                MouseArea {
+                  id: bookmarkMouse
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.choosePath(bookmarkRow.modelData.path)
+                }
+
+                Text {
+                  id: bookmarkRemove
+                  anchors.right: parent.right
+                  anchors.rightMargin: Style.space(8)
+                  anchors.verticalCenter: parent.verticalCenter
+                  visible: bookmarkMouse.containsMouse || bookmarkRow.current
+                  text: "✕"
+                  color: Util.alpha(root.ink, 0.55)
+                  font.family: "sans-serif"
+                  font.pixelSize: Style.font.caption
+
+                  MouseArea {
+                    anchors.fill: parent
+                    anchors.margins: -Style.space(5)
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.removeBookmark(bookmarkRow.modelData.path)
+                  }
                 }
               }
             }

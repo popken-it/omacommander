@@ -61,6 +61,53 @@ def config_home():
     return value if value else os.path.join(home_dir(), ".config")
 
 
+def state_home():
+    value = os.environ.get("XDG_STATE_HOME", "")
+    return value if value else os.path.join(home_dir(), ".local", "state")
+
+
+def places_file():
+    return os.path.join(state_home(), "omarchy", "files-places.json")
+
+
+def read_bookmarks():
+    try:
+        with open(places_file(), encoding="utf-8") as handle:
+            data = json.load(handle)
+    except (OSError, ValueError):
+        return []
+    if not isinstance(data, list):
+        return []
+    seen = set()
+    out = []
+    for value in data:
+        if not isinstance(value, str) or not value.startswith("/"):
+            continue
+        path = os.path.normpath(value)
+        if path not in seen:
+            seen.add(path)
+            out.append(path)
+    return out
+
+
+def write_bookmarks(paths):
+    target = places_file()
+    directory = os.path.dirname(target)
+    os.makedirs(directory, mode=0o700, exist_ok=True)
+    handle, temp = tempfile.mkstemp(prefix=".files-places-", dir=directory)
+    try:
+        with os.fdopen(handle, "w", encoding="utf-8") as stream:
+            json.dump(paths, stream, ensure_ascii=False, indent=2)
+            stream.write("\n")
+        os.replace(temp, target)
+    except Exception:
+        try:
+            os.remove(temp)
+        except OSError:
+            pass
+        raise
+
+
 def normalize(path):
     if not isinstance(path, str) or not path:
         raise ValueError("empty path")
@@ -557,6 +604,10 @@ class Server:
                 self.emit(self.props_event(job_id, command.get("path")))
             elif op == "read":
                 self.emit(self.file_event(job_id, command.get("path")))
+            elif op == "bookmarkAdd":
+                self.emit(self.bookmark_add(job_id, command.get("path")))
+            elif op == "bookmarkRemove":
+                self.emit(self.bookmark_remove(job_id, command.get("path")))
             elif op in MUTATING:
                 if self.busy:
                     self.emit({"event": "error", "id": job_id, "message": "another file operation is running"})
@@ -571,22 +622,7 @@ class Server:
 
     def places_event(self, job_id):
         home = home_dir()
-        folders = [
-            ("Home", home, "user-home", "place"),
-            ("Desktop", xdg_user_dir("DESKTOP", "Desktop"), "folder-desktop", "place"),
-            ("Documents", xdg_user_dir("DOCUMENTS", "Documents"), "folder-documents", "place"),
-            ("Downloads", xdg_user_dir("DOWNLOADS", "Downloads"), "folder-download", "place"),
-            ("Pictures", xdg_user_dir("PICTURES", "Pictures"), "folder-pictures", "place"),
-            ("Music", xdg_user_dir("MUSIC", "Music"), "folder-music", "place"),
-            ("Videos", xdg_user_dir("VIDEOS", "Videos"), "folder-videos", "place"),
-        ]
-        places = []
-        for label, path, icon, kind in folders:
-            if path and os.path.isdir(path) and (label == "Home" or path != home):
-                places.append({"label": label, "path": path, "icon": icon, "kind": kind})
-        places.append({"label": "Trash", "path": TRASH_PATH, "icon": "user-trash", "kind": "trash"})
-        places.append({"label": "Computer", "path": "/", "icon": "drive-harddisk", "kind": "root"})
-
+        places = standard_places()
         mounts = []
         user = os.path.basename(home)
         for base in ("/run/media/" + user, "/media/" + user):
@@ -598,7 +634,46 @@ class Server:
                 full = os.path.join(base, name)
                 if os.path.isdir(full):
                     mounts.append({"label": name, "path": full, "icon": "drive-harddisk", "kind": "mount"})
-        return {"event": "places", "id": job_id, "home": home, "places": places, "mounts": mounts}
+        return {"event": "places", "id": job_id, "home": home, "places": places,
+                "mounts": mounts, "bookmarks": bookmark_entries()}
+
+    def bookmark_add(self, job_id, path):
+        if path == TRASH_PATH:
+            return bookmarks_event(job_id, False, "Trash cannot be added to Places")
+        try:
+            full = normalize(path)
+        except Exception as exc:
+            return bookmarks_event(job_id, False, friendly_error(exc))
+        trash_base = os.path.dirname(Trash().files)
+        if full == trash_base or full.startswith(trash_base + os.sep):
+            return bookmarks_event(job_id, False, "Trash cannot be added to Places")
+        if not os.path.isdir(full):
+            return bookmarks_event(job_id, False, "Only folders can be added to Places")
+        known = [entry["path"] for entry in standard_places()] + read_bookmarks()
+        if full in known:
+            return bookmarks_event(job_id, False, "Already in Places")
+        paths = read_bookmarks()
+        paths.append(full)
+        try:
+            write_bookmarks(paths)
+        except Exception as exc:
+            return bookmarks_event(job_id, False, friendly_error(exc))
+        return bookmarks_event(job_id, True, "Added to Places")
+
+    def bookmark_remove(self, job_id, path):
+        try:
+            full = normalize(path)
+        except Exception as exc:
+            return bookmarks_event(job_id, False, friendly_error(exc))
+        paths = read_bookmarks()
+        if full not in paths:
+            return bookmarks_event(job_id, False, "Not in Places")
+        paths = [item for item in paths if item != full]
+        try:
+            write_bookmarks(paths)
+        except Exception as exc:
+            return bookmarks_event(job_id, False, friendly_error(exc))
+        return bookmarks_event(job_id, True, "Removed from Places")
 
     def list_event(self, job_id, path, hidden):
         if path == TRASH_PATH:
@@ -769,13 +844,12 @@ class Server:
             ok = ok and not job.errors
             self.busy = False
             self.cancel_requested = False
-            if self.closing:
-                return
-            self.emit({
-                "event": "job", "id": job_id, "state": "done", "action": op, "ok": ok,
-                "message": message if message else ("done" if ok else "failed"),
-                "errors": job.errors[:50], "done": job.done,
-            })
+            if not self.closing:
+                self.emit({
+                    "event": "job", "id": job_id, "state": "done", "action": op, "ok": ok,
+                    "message": message if message else ("done" if ok else "failed"),
+                    "errors": job.errors[:50], "done": job.done,
+                })
 
     def job_mkdir(self, job, command):
         parent = normalize(command.get("path"))
@@ -945,6 +1019,39 @@ def xdg_user_dir(key, fallback):
     except OSError:
         pass
     return os.path.join(home_dir(), fallback)
+
+
+def standard_places():
+    home = home_dir()
+    folders = [
+        ("Home", home, "user-home", "place"),
+        ("Desktop", xdg_user_dir("DESKTOP", "Desktop"), "folder-desktop", "place"),
+        ("Documents", xdg_user_dir("DOCUMENTS", "Documents"), "folder-documents", "place"),
+        ("Downloads", xdg_user_dir("DOWNLOADS", "Downloads"), "folder-download", "place"),
+        ("Pictures", xdg_user_dir("PICTURES", "Pictures"), "folder-pictures", "place"),
+        ("Music", xdg_user_dir("MUSIC", "Music"), "folder-music", "place"),
+        ("Videos", xdg_user_dir("VIDEOS", "Videos"), "folder-videos", "place"),
+    ]
+    places = []
+    for label, path, icon, kind in folders:
+        if path and os.path.isdir(path) and (label == "Home" or path != home):
+            places.append({"label": label, "path": path, "icon": icon, "kind": kind})
+    places.append({"label": "Trash", "path": TRASH_PATH, "icon": "user-trash", "kind": "trash"})
+    places.append({"label": "Computer", "path": "/", "icon": "drive-harddisk", "kind": "root"})
+    return places
+
+
+def bookmark_entries():
+    entries = []
+    for path in read_bookmarks():
+        name = os.path.basename(path.rstrip("/")) or path
+        entries.append({"label": name, "path": path, "icon": "folder", "kind": "bookmark"})
+    return entries
+
+
+def bookmarks_event(job_id, ok, message):
+    return {"event": "bookmarks", "id": job_id, "ok": ok, "message": message,
+            "bookmarks": bookmark_entries()}
 
 
 def owner_name(uid):

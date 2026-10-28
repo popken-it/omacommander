@@ -26,10 +26,12 @@ Item {
   property string home: ""
   property var places: []
   property var mounts: []
+  property var bookmarks: []
   property int seq: 0
   property var queue: []
 
   signal placesReady(var data)
+  signal bookmarksReady(var data)
   signal listing(var data)
   signal searchFinished(var data)
   signal jobEvent(var data)
@@ -96,7 +98,12 @@ Item {
       root.home = String(event.home || root.home)
       root.places = event.places || []
       root.mounts = event.mounts || []
+      root.bookmarks = event.bookmarks || []
       root.placesReady(event)
+      break
+    case "bookmarks":
+      root.bookmarks = event.bookmarks || []
+      root.bookmarksReady(event)
       break
     case "listing":
       root.listing(event)
