@@ -37,6 +37,15 @@ TestCase {
     compare(pane.path, "/tmp")
   }
 
+  function test_setActive_switches_and_leaves_search() {
+    files.searchActive = true
+    files.setActive(1)
+    compare(files.activePane, 1)
+    verify(!files.searchActive)
+    files.setActive(0)
+    compare(files.activePane, 0)
+  }
+
   function test_boomer_only_with_retro() {
     files.retro = true
     files.ultraRetro = true

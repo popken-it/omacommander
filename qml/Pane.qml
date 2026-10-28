@@ -524,7 +524,7 @@ Item {
     z: -1
     color: root.ultraRetro ? "#0000a8" : "transparent"
     border.width: root.ultraRetro ? 2 : 0
-    border.color: "#00aaaa"
+    border.color: root.ultraRetro ? (root.active ? "#00aaaa" : "#005f5f") : "transparent"
   }
 
   Rectangle {
@@ -923,5 +923,12 @@ Item {
       font.family: root.fontFamily
       font.pixelSize: root.fCaption
     }
+  }
+
+  // Any click in the pane makes it the active one, including empty space
+  // where no row delegate or header sits.
+  TapHandler {
+    acceptedButtons: Qt.LeftButton | Qt.RightButton
+    onTapped: root.paneActivated()
   }
 }

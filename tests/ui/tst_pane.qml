@@ -55,4 +55,33 @@ TestCase {
     compare(pane.selectedCount, 1)
     compare(pane.cursorEntry().path, "/tmp/one")
   }
+
+  SignalSpy { id: activated; target: pane; signalName: "paneActivated" }
+
+  function showGrid() {
+    pane.width = 400
+    pane.height = 300
+    pane.viewMode = "grid"
+    pane.navigate("/tmp")
+    pane.reqId = 44
+    pane.receive({
+      id: 44, path: "/tmp", displayPath: "/tmp", parent: "/", free: 1,
+      trash: false, writable: true, error: null, truncated: false,
+      entries: [entry("one", "/tmp/one", false),
+                entry("two", "/tmp/two", false)]
+    })
+    wait(50)
+  }
+
+  // A real pointer click cannot be synthesized headlessly here, so this covers
+  // the path the row and grid delegates call. The pane-wide TapHandler that
+  // covers empty space is declarative and fires for any click in the pane.
+  function test_click_activates_and_selects() {
+    showGrid()
+    pane.selectOnly(1)
+    activated.clear()
+    pane.click(0, Qt.NoModifier)
+    compare(activated.count, 1)
+    compare(pane.cursorEntry().path, "/tmp/one")
+  }
 }

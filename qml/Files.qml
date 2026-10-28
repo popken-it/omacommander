@@ -217,9 +217,9 @@ Item {
 
   function setActive(index) {
     if (index !== 0 && index !== 1) return
-    if (index === activePane) return
     if (searchActive) finishSearch()
     activePane = index
+    focusKeys()
   }
 
   function toggleSplit() {
