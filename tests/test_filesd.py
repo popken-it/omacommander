@@ -464,6 +464,15 @@ class FilesdTest(unittest.TestCase):
         self.assertTrue(done["ok"], done)
         self.assertFalse(os.path.exists(os.path.join(dest, "note.txt")))
 
+    def test_move_reports_removed_path(self):
+        source = os.path.join(self.home, "note.txt")
+        dest = os.path.join(self.home, "Documents")
+        ident = self.next_id()
+        self.client.send(op="move", id=ident, sources=[source], dest=dest)
+        done = self.client.wait("job", ident)
+        self.assertTrue(done["ok"], done)
+        self.assertEqual(done.get("removed"), [source])
+
     def test_props(self):
         ident = self.next_id()
         self.client.send(op="props", id=ident, path=os.path.join(self.home, "note.txt"))

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""filesd - filesystem backend for the popkenr.files Omarchy plugin.
+"""filesd - filesystem backend for the OmaCommander Omarchy plugin.
 
 The QML overlay talks one JSON object per line over stdin/stdout. Listing,
 searching and metadata are answered on the main loop; mutating work runs on a
@@ -14,6 +14,7 @@ import json
 import mimetypes
 import os
 import pwd
+import queue
 import grp
 import re
 import shutil
@@ -98,7 +99,7 @@ def write_bookmarks(paths):
     handle, temp = tempfile.mkstemp(prefix=".files-places-", dir=directory)
     try:
         with os.fdopen(handle, "w", encoding="utf-8") as stream:
-            json.dump(paths, stream, ensure_ascii=False, indent=2)
+            json.dump(paths, stream, ensure_ascii=True, indent=2)
             stream.write("\n")
         os.replace(temp, target)
     except Exception:
@@ -282,39 +283,43 @@ class Trash:
         self.ensure()
         entries = []
         try:
-            names = os.listdir(self.info)
+            handle = os.scandir(self.info)
         except OSError:
             return entries
-        for info_name in names:
-            if limit is not None and len(entries) >= limit:
-                break
-            if not info_name.endswith(".trashinfo"):
-                continue
-            name = info_name[: -len(".trashinfo")]
-            full = os.path.join(self.files, name)
-            info_path = os.path.join(self.info, info_name)
-            parser = configparser.ConfigParser(interpolation=None)
-            try:
-                parser.read(info_path, encoding="utf-8")
-                original = urllib.parse.unquote(parser.get("Trash Info", "Path"))
-                deleted = parser.get("Trash Info", "DeletionDate", fallback="")
-            except (OSError, configparser.Error):
-                continue
-            if not os.path.lexists(full):
-                continue
-            item = entry_for(full, name=os.path.basename(original.rstrip("/")), parent_label=os.path.dirname(original))
-            if item is None:
-                continue
-            item["restoreTo"] = original
-            item["deleted"] = deleted
-            item["name"] = os.path.basename(original.rstrip("/")) or name
-            entries.append(item)
+        with handle:
+            for entry in handle:
+                if limit is not None and len(entries) >= limit:
+                    break
+                info_name = entry.name
+                if not info_name.endswith(".trashinfo"):
+                    continue
+                name = info_name[: -len(".trashinfo")]
+                full = os.path.join(self.files, name)
+                info_path = os.path.join(self.info, info_name)
+                parser = configparser.ConfigParser(interpolation=None)
+                try:
+                    parser.read(info_path, encoding="utf-8")
+                    original = urllib.parse.unquote(parser.get("Trash Info", "Path"))
+                    deleted = parser.get("Trash Info", "DeletionDate", fallback="")
+                except (OSError, configparser.Error):
+                    continue
+                if not os.path.lexists(full):
+                    continue
+                item = entry_for(full, name=os.path.basename(original.rstrip("/")), parent_label=os.path.dirname(original))
+                if item is None:
+                    continue
+                item["restoreTo"] = original
+                item["deleted"] = deleted
+                item["name"] = os.path.basename(original.rstrip("/")) or name
+                entries.append(item)
         entries.sort(key=lambda e: e.get("deleted", ""), reverse=True)
         return entries
 
-    def restore(self, paths):
+    def restore(self, paths, job=None):
         restored, errors = 0, []
         for path in paths:
+            if job is not None:
+                job.check()
             full = normalize(path)
             info_path = os.path.join(self.info, os.path.basename(full) + ".trashinfo")
             parser = configparser.ConfigParser(interpolation=None)
@@ -337,26 +342,56 @@ class Trash:
                 if os.lstat(full).st_dev == os.stat(parent).st_dev:
                     os.rename(full, original)
                 else:
-                    copy_item(full, original, None)
-                    remove_item(full)
+                    copy_item(full, original, job)
+                    remove_item(full, job)
                 os.remove(info_path)
                 restored += 1
+                if job is not None:
+                    job.progress(os.path.basename(full))
+            except Cancelled:
+                raise
             except Exception as exc:
                 errors.append("%s: %s" % (os.path.basename(full), exc))
         return restored, errors
 
     def empty(self, job=None):
         errors = []
-        for directory in (self.files, self.info):
+        try:
+            with os.scandir(self.files) as handle:
+                names = [entry.name for entry in handle]
+        except FileNotFoundError:
+            names = []
+        except OSError as exc:
+            return [str(exc)]
+        for name in names:
+            if job is not None:
+                job.check()
+            target = os.path.join(self.files, name)
             try:
-                for name in os.listdir(directory):
-                    if job is not None:
-                        job.check()
-                    remove_item(os.path.join(directory, name), job)
-            except FileNotFoundError:
-                pass
+                remove_item(target, job)
+                try:
+                    os.remove(os.path.join(self.info, name + ".trashinfo"))
+                except FileNotFoundError:
+                    pass
             except OSError as exc:
                 errors.append(str(exc))
+        # Remove leftover metadata only for items that are really gone.
+        try:
+            with os.scandir(self.info) as handle:
+                for entry in handle:
+                    if job is not None:
+                        job.check()
+                    name = entry.name
+                    base = name[:-len(".trashinfo")] if name.endswith(".trashinfo") else name
+                    if not os.path.lexists(os.path.join(self.files, base)):
+                        try:
+                            os.remove(entry.path)
+                        except OSError as exc:
+                            errors.append(str(exc))
+        except FileNotFoundError:
+            pass
+        except OSError as exc:
+            errors.append(str(exc))
         self.ensure()
         return errors
 
@@ -382,22 +417,36 @@ def remove_item(path, job=None):
             job.check()
         os.remove(path)
         return
-    for root, dirs, files in os.walk(path, topdown=False, followlinks=False):
+    if os.path.ismount(path):
+        raise ValueError("refusing to delete a mount point")
+    root_dev = os.lstat(path).st_dev
+    directories = []
+    for root, dirs, files in os.walk(path, topdown=True, followlinks=False):
         if job is not None:
             job.check()
+        if os.lstat(root).st_dev != root_dev:
+            raise ValueError("refusing to delete across a mount point")
         for name in files:
             if job is not None:
                 job.check()
             os.remove(os.path.join(root, name))
+        keep = []
         for name in dirs:
             target = os.path.join(root, name)
-            if os.path.islink(target) or not os.path.isdir(target):
+            if os.path.islink(target):
                 if job is not None:
                     job.check()
                 os.remove(target)
-            else:
-                os.rmdir(target)
-    os.rmdir(path)
+                continue
+            if os.path.ismount(target) or os.lstat(target).st_dev != root_dev:
+                raise ValueError("refusing to delete across a mount point")
+            keep.append(name)
+        dirs[:] = keep
+        directories.append(root)
+    for directory in reversed(directories):
+        if job is not None:
+            job.check()
+        os.rmdir(directory)
 
 
 class Job:
@@ -411,6 +460,7 @@ class Job:
         self.done = 0
         self.last_emit = 0.0
         self.total = 0
+        self.removed = []
 
     def check(self):
         if self.server.cancel_requested:
@@ -436,16 +486,17 @@ class Job:
     def conflict(self, src, dst):
         self.server.emit({
             "event": "conflict", "id": self.id, "src": src, "dst": dst,
-            "srcSize": safe_size(src, follow=False), "dstSize": safe_size(dst, follow=False),
+            "srcSize": safe_size(src), "dstSize": safe_size(dst),
+            "srcDir": os.path.isdir(src), "dstDir": os.path.isdir(dst),
             "srcMtime": safe_mtime(src), "dstMtime": safe_mtime(dst),
         })
         choice = self.server.wait_conflict()
         return choice
 
 
-def safe_size(path, follow=True):
+def safe_size(path):
     try:
-        return int(os.stat(path).st_size if follow else os.lstat(path).st_size)
+        return int(os.lstat(path).st_size)
     except OSError:
         return 0
 
@@ -546,9 +597,27 @@ def copy_into(src, dest_dir, job):
     if os.path.lexists(target):
         if os.path.isdir(src) and not os.path.islink(src) and os.path.isdir(target) and not os.path.islink(target):
             # Merge into the existing folder, prompting only on file clashes.
-            for child in sorted(os.listdir(src), key=natural_key):
-                copy_into(os.path.join(src, child), target, job)
-            shutil.copystat(src, target)
+            marker = os.path.join(target, ".filesd-partial")
+            created = False
+            try:
+                if not os.path.lexists(marker):
+                    with open(marker, "w", encoding="utf-8"):
+                        pass
+                    created = True
+            except OSError:
+                marker = None
+            try:
+                for child in sorted(os.listdir(src), key=natural_key):
+                    copy_into(os.path.join(src, child), target, job)
+                shutil.copystat(src, target)
+            except Exception:
+                raise
+            else:
+                if created and marker:
+                    try:
+                        os.remove(marker)
+                    except OSError:
+                        pass
             return True
         else:
             choice = job.conflict(src, target)
@@ -573,6 +642,11 @@ class Server:
         self.conflict_choice = ""
         self.search_lock = threading.Lock()
         self.search_cancel = None
+        self.bookmark_lock = threading.Lock()
+        self.bookmark_version = 0
+        self.read_queue = queue.Queue()
+        for _ in range(2):
+            threading.Thread(target=self.read_worker, daemon=True).start()
 
     # io ---------------------------------------------------------------
 
@@ -646,15 +720,20 @@ class Server:
     # read-only --------------------------------------------------------
 
     def run_read(self, job_id, work):
-        """Read-only filesystem work never blocks the stdin loop."""
-        def target():
+        """Queue read-only work; two workers bound thread growth."""
+        self.read_queue.put((job_id, work))
+
+    def read_worker(self):
+        while True:
+            job_id, work = self.read_queue.get()
+            if self.closing:
+                continue
             try:
                 event = work()
             except Exception as exc:
                 event = {"event": "error", "id": job_id, "message": str(exc)}
-            if not self.closing:
+            if event is not None and not self.closing:
                 self.emit(event)
-        threading.Thread(target=target, daemon=True).start()
 
     def start_search(self, job_id, path, query, hidden):
         cancel = threading.Event()
@@ -662,21 +741,25 @@ class Server:
             if self.search_cancel is not None:
                 self.search_cancel.set()
             self.search_cancel = cancel
-        def target():
-            event = self.search_event(job_id, path, query, hidden, cancel)
-            with self.search_lock:
-                if self.search_cancel is cancel:
-                    self.search_cancel = None
-            if event is not None and not cancel.is_set() and not self.closing:
-                self.emit(event)
-        threading.Thread(target=target, daemon=True).start()
+        def work():
+            try:
+                event = self.search_event(job_id, path, query, hidden, cancel)
+            finally:
+                with self.search_lock:
+                    if self.search_cancel is cancel:
+                        self.search_cancel = None
+            return None if cancel.is_set() else event
+        self.run_read(job_id, work)
 
     def places_event(self, job_id):
         home = home_dir()
         places = standard_places()
         mounts = mounted_places()
+        with self.bookmark_lock:
+            bookmarks = bookmark_entries()
+            version = self.bookmark_version
         return {"event": "places", "id": job_id, "home": home, "places": places,
-                "mounts": mounts, "bookmarks": bookmark_entries()}
+                "mounts": mounts, "bookmarks": bookmarks, "bookmarkVersion": version}
 
     def bookmark_add(self, job_id, path):
         if path == TRASH_PATH:
@@ -690,33 +773,37 @@ class Server:
             return bookmarks_event(job_id, False, "Trash cannot be added to Places")
         if not os.path.isdir(full):
             return bookmarks_event(job_id, False, "Only folders can be added to Places")
-        known = ([entry["path"] for entry in standard_places()]
-                 + [entry["path"] for entry in mounted_places()]
-                 + read_bookmarks())
-        if full in known:
-            return bookmarks_event(job_id, False, "Already in Places")
-        paths = read_bookmarks()
-        paths.append(full)
-        try:
-            write_bookmarks(paths)
-        except Exception as exc:
-            return bookmarks_event(job_id, False, friendly_error(exc))
-        return bookmarks_event(job_id, True, "Added to Places")
+        with self.bookmark_lock:
+            known = ([entry["path"] for entry in standard_places()]
+                     + [entry["path"] for entry in mounted_places()]
+                     + read_bookmarks())
+            if full in known:
+                return bookmarks_event(job_id, False, "Already in Places", self.bookmark_version)
+            paths = read_bookmarks()
+            paths.append(full)
+            try:
+                write_bookmarks(paths)
+            except Exception as exc:
+                return bookmarks_event(job_id, False, friendly_error(exc), self.bookmark_version)
+            self.bookmark_version += 1
+            return bookmarks_event(job_id, True, "Added to Places", self.bookmark_version)
 
     def bookmark_remove(self, job_id, path):
         try:
             full = normalize(path)
         except Exception as exc:
             return bookmarks_event(job_id, False, friendly_error(exc))
-        paths = read_bookmarks()
-        if full not in paths:
-            return bookmarks_event(job_id, False, "Not in Places")
-        paths = [item for item in paths if item != full]
-        try:
-            write_bookmarks(paths)
-        except Exception as exc:
-            return bookmarks_event(job_id, False, friendly_error(exc))
-        return bookmarks_event(job_id, True, "Removed from Places")
+        with self.bookmark_lock:
+            paths = read_bookmarks()
+            if full not in paths:
+                return bookmarks_event(job_id, False, "Not in Places", self.bookmark_version)
+            paths = [item for item in paths if item != full]
+            try:
+                write_bookmarks(paths)
+            except Exception as exc:
+                return bookmarks_event(job_id, False, friendly_error(exc), self.bookmark_version)
+            self.bookmark_version += 1
+            return bookmarks_event(job_id, True, "Removed from Places", self.bookmark_version)
 
     def list_event(self, job_id, path, hidden):
         if path == TRASH_PATH:
@@ -731,10 +818,16 @@ class Server:
             full = normalize(path)
             if not os.path.isdir(full):
                 raise NotADirectoryError(path)
-            names = os.listdir(full)
-            if not hidden:
-                names = [name for name in names if not name.startswith(".")]
-            truncated = len(names) > LIST_LIMIT
+            names = []
+            truncated = False
+            with os.scandir(full) as handle:
+                for entry in handle:
+                    if not hidden and entry.name.startswith("."):
+                        continue
+                    names.append(entry.name)
+                    if len(names) > LIST_LIMIT:
+                        truncated = True
+                        break
             if truncated:
                 names = sorted(names, key=natural_key)[:LIST_LIMIT]
             entries = []
@@ -905,6 +998,7 @@ class Server:
                     "event": "job", "id": job_id, "state": "done", "action": op, "ok": ok,
                     "message": message if message else ("done" if ok else "failed"),
                     "errors": job.errors[:50], "done": job.done,
+                    "removed": job.removed,
                 })
 
     def job_mkdir(self, job, command):
@@ -930,6 +1024,7 @@ class Server:
         if os.path.lexists(target):
             raise ValueError("a file with that name already exists")
         os.rename(source, target)
+        job.removed.append(source)
         return "Renamed"
 
     def job_copy(self, job, command, move):
@@ -952,6 +1047,8 @@ class Server:
                     did = copy_into(source, dest, job)
                 if did:
                     copied += 1
+                    if move and not os.path.lexists(source):
+                        job.removed.append(source)
             except Cancelled:
                 raise
             except Exception as exc:
@@ -971,6 +1068,7 @@ class Server:
             job.check()
             try:
                 trash.put(path)
+                job.removed.append(path)
                 job.progress(os.path.basename(path.rstrip("/")))
                 moved += 1
             except Exception as exc:
@@ -992,7 +1090,10 @@ class Server:
             try:
                 remove_item(path, job)
                 Trash().forget(path)
+                job.removed.append(path)
                 job.progress(os.path.basename(path.rstrip("/")))
+            except Cancelled:
+                raise
             except Exception as exc:
                 job.error("%s: %s" % (os.path.basename(path.rstrip("/")), friendly_error(exc)))
         return "Deleted" if not job.errors else "Some items could not be deleted"
@@ -1002,7 +1103,10 @@ class Server:
         if not paths:
             raise ValueError("nothing selected")
         job.total = len(paths)
-        restored, errors = Trash().restore(paths)
+        restored, errors = Trash().restore(paths, job)
+        for path in paths:
+            if not os.path.lexists(path):
+                job.removed.append(path)
         for error in errors:
             job.error(error)
         job.done = restored
@@ -1030,6 +1134,15 @@ def move_into(source, dest_dir, job):
         # folder to merge: merging would move the symlink target's contents.
         if (os.path.isdir(source) and not os.path.islink(source)
                 and os.path.isdir(target) and not os.path.islink(target)):
+            marker = os.path.join(target, ".filesd-partial")
+            created = False
+            try:
+                if not os.path.lexists(marker):
+                    with open(marker, "w", encoding="utf-8"):
+                        pass
+                    created = True
+            except OSError:
+                marker = None
             for name in sorted(os.listdir(source), key=natural_key):
                 move_into(os.path.join(source, name), target, job)
             try:
@@ -1038,7 +1151,13 @@ def move_into(source, dest_dir, job):
                 # A skipped conflict leaves its source behind; that is the
                 # outcome the user asked for, not a failed move.
                 pass
-            return not os.path.lexists(source)
+            done = not os.path.lexists(source)
+            if done and created and marker:
+                try:
+                    os.remove(marker)
+                except OSError:
+                    pass
+            return done
         choice = job.conflict(source, target)
         if choice == "skip":
             return False
@@ -1126,9 +1245,10 @@ def bookmark_entries():
     return entries
 
 
-def bookmarks_event(job_id, ok, message):
+def bookmarks_event(job_id, ok, message, version=0):
+    with_entries = bookmark_entries()
     return {"event": "bookmarks", "id": job_id, "ok": ok, "message": message,
-            "bookmarks": bookmark_entries()}
+            "bookmarks": with_entries, "bookmarkVersion": version}
 
 
 def owner_name(uid):

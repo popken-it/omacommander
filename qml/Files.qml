@@ -16,7 +16,7 @@ Item {
   property var manifest: null
   property bool opened: false
 
-  readonly property string pluginId: manifest && manifest.id ? String(manifest.id) : "popkenr.files"
+  readonly property string pluginId: manifest && manifest.id ? String(manifest.id) : "popkenr.omacommander"
   readonly property string trashPath: ":trash:"
   readonly property string home: backend.home || Quickshell.env("HOME") || "/"
 
@@ -87,7 +87,6 @@ Item {
   property string pendingAction: ""
   property var pendingPaths: []
   property var props: ({})
-  property var conflict: ({})
 
   property var job: ({})
   property var clipboard: ({ mode: "", paths: [] })
@@ -184,7 +183,6 @@ Item {
     dialogActions = []
     pendingAction = ""
     pendingPaths = []
-    conflict = ({})
     viewerOpen = false
     viewerReq = 0
     paneA.clearSearch()
@@ -239,6 +237,35 @@ Item {
   function refreshPanes() {
     if (paneA.path !== "") paneA.refresh()
     if (paneB.path !== "") paneB.refresh()
+  }
+
+  function pathIsUnder(child, parent) {
+    return child === parent || child.indexOf(parent.replace(/\/+$/, "") + "/") === 0
+  }
+
+  function recoverPanes(removed) {
+    if (!removed || removed.length === 0) return
+    var panes = [paneA, paneB]
+    for (var i = 0; i < panes.length; i++) {
+      var pane = panes[i]
+      if (!pane.path) continue
+      var target = ""
+      for (var j = 0; j < removed.length; j++) {
+        if (!removed[j] || !pathIsUnder(pane.path, removed[j])) continue
+        target = parentOf(removed[j])
+        var guard = 0
+        while (target !== "/" && guard < removed.length + 1) {
+          var nested = false
+          for (var k = 0; k < removed.length; k++)
+            if (pathIsUnder(target, removed[k])) nested = true
+          if (!nested) break
+          target = parentOf(target)
+          guard++
+        }
+        break
+      }
+      if (target && target !== pane.path) pane.navigate(target)
+    }
   }
 
   function toggleHidden() {
@@ -474,10 +501,10 @@ Item {
       { key: "F7", text: "New folder" },
       { key: "F8", text: "Move to Trash (in Trash: delete permanently)" },
       { key: "F9", text: "Open the menu" },
-      { key: "F10", text: "Close Files" },
+      { key: "F10", text: "Close OmaCommander" },
       { key: "Shift+F6", text: "Rename (Total Commander alias)" },
       { key: "Shift+F8", text: "Delete permanently" },
-      { key: "Alt+F4", text: "Close Files" },
+      { key: "Alt+F4", text: "Close OmaCommander" },
       { key: "Tab", text: "Switch pane (dual pane)" },
       { key: "Ctrl+Shift+D", text: "Show or hide the second pane" },
       { key: "Ctrl+L", text: "Type a location" },
@@ -487,7 +514,7 @@ Item {
       { key: "A− / A+", text: "Smaller or larger text (top right)" },
       { key: "Ctrl+- / Ctrl+=", text: "Smaller or larger text" },
       { key: "Ctrl+0", text: "Reset text to 120%" },
-      { key: "Retro", text: "Classic Norton Commander colours (sidebar switch)" },
+      { key: "Ctrl+Shift+R", text: "Toggle Retro Norton Commander colours" },
       { key: "Ctrl+R", text: "Reload" },
       { key: "Delete", text: "Move to Trash" },
       { key: "Shift+Delete", text: "Delete permanently" }
@@ -553,7 +580,7 @@ Item {
 
   function openExternal(path) {
     if (!path) return
-    Quickshell.execDetached(["xdg-open", path])
+    Util.execArgv(["gio", "open", path])
   }
 
   // ---------------------------------------------------------------- dialogs
@@ -585,7 +612,6 @@ Item {
     dialogText = ""
     pendingAction = ""
     pendingPaths = []
-    conflict = ({})
     if (dialogField) dialogField.text = ""
     focusKeys()
   }
@@ -931,6 +957,7 @@ Item {
 
     if (ctrl && shift && key === Qt.Key_N) { openMkdir(); event.accepted = true; return }
     if (ctrl && shift && key === Qt.Key_D) { toggleSplit(); event.accepted = true; return }
+    if (ctrl && shift && key === Qt.Key_R) { retro = !retro; event.accepted = true; return }
     if (ctrl && key === Qt.Key_F) { openSearch(""); event.accepted = true; return }
     if (ctrl && key === Qt.Key_L) { openLocation(); event.accepted = true; return }
     if (ctrl && key === Qt.Key_H) { toggleHidden(); event.accepted = true; return }
@@ -1042,16 +1069,17 @@ Item {
             message += " — " + data.errors[0]
           root.showToast(message, true)
         }
+        root.recoverPanes(data.removed || [])
         root.refreshPanes()
         if (root.searchActive) root.runSearch()
       }
     }
 
     onConflictAsked: function(data) {
-      root.conflict = data
-      var existing = Format.bytes(data.dstSize) + " · " + Format.date(data.dstMtime)
-      var incoming = Format.bytes(data.srcSize) + " · " + Format.date(data.srcMtime)
-      root.openDialog("conflict", "Replace existing file?",
+      var target = data.dstDir ? "folder" : "file"
+      var existing = data.dstDir ? "folder" : Format.bytes(data.dstSize) + " · " + Format.date(data.dstMtime)
+      var incoming = data.srcDir ? "folder" : Format.bytes(data.srcSize) + " · " + Format.date(data.srcMtime)
+      root.openDialog("conflict", "Replace existing " + target + "?",
                       "\"" + root.baseName(data.dst) + "\" already exists.\n" +
                       "Existing: " + existing + "\nNew: " + incoming,
                       [{ label: "Cancel", action: "cancel" },
@@ -1091,7 +1119,7 @@ Item {
     }
 
     onBackendError: function(data) {
-      root.showToast(String(data.message || "Files backend error"), true)
+      root.showToast(String(data.message || "OmaCommander backend error"), true)
     }
 
     onBackendReady: function() {
@@ -1106,7 +1134,7 @@ Item {
       paneA.loading = false
       paneB.loading = false
       root.recovering = root.opened
-      root.showToast(String(message || "Files backend stopped"), true)
+      root.showToast(String(message || "OmaCommander backend stopped"), true)
     }
   }
 
@@ -1115,7 +1143,7 @@ Item {
   OverlayWindow {
     id: window
     shown: root.opened
-    WlrLayershell.namespace: "popkenr-files"
+    WlrLayershell.namespace: "popkenr-omacommander"
 
     Rectangle {
       anchors.fill: parent

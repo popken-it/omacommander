@@ -1,6 +1,6 @@
-# Files for Omarchy
+# OmaCommander for Omarchy
 
-A Nautilus-shaped file manager that runs as an Omarchy shell overlay. It has
+OmaCommander is a Nautilus-shaped file manager that runs as an Omarchy shell overlay. It has
 the familiar places sidebar, header breadcrumbs, icon and list views, search,
 trash, rename/copy/move, and a proper properties dialog. On top of that it has
 the two-pane keyboard flow of
@@ -17,23 +17,30 @@ active Omarchy theme and needs no extra packages.
 On an Omarchy Quattro machine:
 
 ```bash
-cp -r omarchy-files ~/.config/omarchy/plugins/popkenr.files
-omarchy plugin validate ~/.config/omarchy/plugins/popkenr.files
-omarchy plugin enable popkenr.files
+cp -r omacommander ~/.config/omarchy/plugins/popkenr.omacommander
+omarchy plugin validate ~/.config/omarchy/plugins/popkenr.omacommander
+omarchy plugin enable popkenr.omacommander
 ```
 
 Or publish the repo and install it the normal way:
 
 ```bash
-omarchy plugin add https://github.com/<you>/omarchy-files.git
-omarchy plugin enable popkenr.files
+omarchy plugin add https://github.com/<you>/omacommander.git
+omarchy plugin enable popkenr.omacommander
 ```
 
-A folder icon appears in the bar. Click it to open Files. A hotkey is not
+If you still have the old `popkenr.files` install, remove it first:
+
+```bash
+omarchy plugin disable popkenr.files
+omarchy plugin remove popkenr.files
+```
+
+A folder icon appears in the bar. Click it to open OmaCommander. A hotkey is not
 installed by default; add one to `~/.config/hypr/bindings.conf`:
 
 ```conf
-bindd = SUPER SHIFT, N, Files, exec, omarchy-shell shell toggle popkenr.files '{}'
+bindd = SUPER SHIFT, N, OmaCommander, exec, omarchy-shell shell toggle popkenr.omacommander '{}'
 ```
 
 Then `hyprctl reload`. The same command works from a terminal.
@@ -54,10 +61,10 @@ bar:
 | `F7` | New folder |
 | `F8` | Move to Trash (in Trash: delete permanently) |
 | `F9` | Open the menu |
-| `F10` | Close Files |
+| `F10` | Close OmaCommander |
 | `Shift+F6` | Rename (the Total Commander alias) |
 | `Shift+F8` | Delete permanently |
-| `Alt+F4` | Close Files |
+| `Alt+F4` | Close OmaCommander |
 
 `F5` and `F6` need the second pane; the bar tells you so when it is off.
 Total Commander itself uses `F2` to reread; this keeps `F2` for rename and
@@ -75,6 +82,7 @@ Other keys:
 | `Esc` | Clear search/menu/dialog/viewer, otherwise close |
 | `Ctrl+H` | Show hidden files |
 | `Ctrl+D` | Add the current folder to Places |
+| `Ctrl+Shift+R` | Toggle Retro Norton Commander colours |
 | `Ctrl+=` / `Ctrl+-` | Larger / smaller text |
 | `Ctrl+0` | Reset text to 120% |
 | `Ctrl+R` | Reload |
@@ -84,7 +92,7 @@ Other keys:
 | `Shift+Delete` | Delete permanently; asks "Are you sure?" (Yes or Enter) |
 | `Ctrl+Shift+N` | New folder |
 | `Ctrl+I` | Properties |
-| `Ctrl+W` | Close Files |
+| `Ctrl+W` | Close OmaCommander |
 
 Two-pane keys, from OMARCHOMANDER:
 
@@ -118,10 +126,14 @@ can be driven with the mouse or with Tab first.
   Items land in `$XDG_DATA_HOME/Trash`, so other file managers can restore them.
 - Copy/move with per-file Replace/Skip/Cancel on conflicts, merge for folders,
   cross-filesystem moves, progress in the status bar, and Cancel.
-- Rename, new folder, permanent delete, properties, `xdg-open`. Deleting always asks first.
+- Rename, new folder, permanent delete, properties, and opening files in the
+  default application for their type (via GIO). Deleting always asks first.
+- If a folder shown in a pane is moved or deleted, that pane moves up to the
+  nearest existing parent instead of staying on a dead path.
 - Total Commander-style function-key bar and `F3` lister (text, hex, images).
 - Hidden files, sorting by name/size/modified, grid/list toggle.
-- Everything is keyboard operable; the mouse works too.
+- The main actions have a keyboard path; sidebar rows and the Retro switch
+  also work with the mouse.
 
 ## Deliberate limits
 
@@ -135,7 +147,7 @@ Kept out to keep this one process, no extra dependencies, and no risky magic:
   400 results or 20 seconds. Folders with more than 10,000 visible entries show
   the first 10,000 and say that more are hidden.
 - The lister shows text, a hex dump for binaries, and images. PDF, video,
-  archives and office documents still go to `xdg-open`.
+  archives and office documents still go to their default application.
 - Open folders last for the shell session; saved Places persist across restarts.
 
 ## Backend and tests

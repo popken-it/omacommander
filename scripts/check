@@ -24,12 +24,12 @@ PY
 
 if [ -n "${OMARCHY_PATH:-}" ] && command -v qmllint >/dev/null 2>&1; then
   qmllint -I "$OMARCHY_PATH/shell" qml/*.qml
-else
-  echo "qmllint skipped: run on an Omarchy machine with OMARCHY_PATH set"
-fi
-
-if [ -n "${OMARCHY_PATH:-}" ] && command -v qmltestrunner >/dev/null 2>&1; then
   qmltestrunner -input tests/ui -import "$OMARCHY_PATH/shell"
+elif [ -n "${QML_STUB_PATH:-}" ] && command -v qmllint >/dev/null 2>&1; then
+  qmllint -I "$QML_STUB_PATH" qml/*.qml
+  if command -v qmltestrunner >/dev/null 2>&1; then
+    qmltestrunner -input tests/ui/tst_pane.qml -import "$QML_STUB_PATH"
+  fi
 else
-  echo "qmltestrunner skipped: run on an Omarchy machine with OMARCHY_PATH set"
+  echo "QML checks skipped: run on Omarchy or set QML_STUB_PATH to a Qt import path"
 fi

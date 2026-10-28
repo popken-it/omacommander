@@ -27,6 +27,7 @@ Item {
   property var places: []
   property var mounts: []
   property var bookmarks: []
+  property int bookmarkVersion: 0
   property int seq: 0
   property var queue: []
 
@@ -100,12 +101,18 @@ Item {
       root.home = String(event.home || root.home)
       root.places = event.places || []
       root.mounts = event.mounts || []
-      root.bookmarks = event.bookmarks || []
+      if (Number(event.bookmarkVersion || 0) >= root.bookmarkVersion) {
+        root.bookmarkVersion = Number(event.bookmarkVersion || 0)
+        root.bookmarks = event.bookmarks || []
+      }
       root.placesReady(event)
       break
     case "bookmarks":
-      root.bookmarks = event.bookmarks || []
-      root.bookmarksReady(event)
+      if (Number(event.bookmarkVersion || 0) >= root.bookmarkVersion) {
+        root.bookmarkVersion = Number(event.bookmarkVersion || 0)
+        root.bookmarks = event.bookmarks || []
+        root.bookmarksReady(event)
+      }
       break
     case "listing":
       root.listing(event)
@@ -145,7 +152,8 @@ Item {
     onExited: {
       root.ready = false
       root.queue = []
-      root.backendFailed("Files backend stopped")
+      root.bookmarkVersion = 0
+      root.backendFailed("OmaCommander backend stopped")
       if (root.opened) reviveTimer.restart()
     }
   }
