@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "popkenr.files",
+  "name": "Files",
+  "version": "1.0.0",
+  "author": "popkenr",
+  "license": "MIT",
+  "description": "A Nautilus-style file manager for the Omarchy shell: places sidebar, breadcrumbs, icon and list views, search, trash, file operations, and the two-pane keyboard flow of Norton Commander.",
+  "kinds": [
+    "overlay",
+    "bar-widget"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "overlay": "qml/Files.qml",
+    "barWidget": "qml/BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Files",
+    "description": "Opens the Files window",
+    "category": "Tools",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}
