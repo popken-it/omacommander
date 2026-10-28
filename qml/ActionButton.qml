@@ -15,7 +15,7 @@ Rectangle {
   implicitWidth: labelText.implicitWidth + Style.space(26)
   implicitHeight: Style.space(30)
   radius: Style.space(7)
-  color: primary ? Commons.Color.accent
+  color: primary ? (danger ? Commons.Color.urgent : Commons.Color.accent)
                   : (danger ? Util.alpha(Commons.Color.urgent, 0.16)
                             : (mouse.containsMouse ? Util.alpha(Commons.Color.popups.text, 0.10) : "transparent"))
   border.width: primary ? 0 : 1
@@ -26,7 +26,7 @@ Rectangle {
     anchors.centerIn: parent
     text: root.label
     textFormat: Text.PlainText
-    color: root.primary ? Commons.Color.background
+    color: root.primary ? (root.danger ? Commons.Color.foreground : Commons.Color.background)
                         : (root.danger ? Commons.Color.urgent : Commons.Color.popups.text)
     font.family: "sans-serif"
     font.pixelSize: Math.max(1, Math.round(Style.font.body * root.fontScale))

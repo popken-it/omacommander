@@ -78,8 +78,8 @@ Other keys:
 | `Ctrl+R` | Reload |
 | `Ctrl+A` | Select all |
 | `Ctrl+C` / `Ctrl+X` / `Ctrl+V` | Copy / cut / paste |
-| `Delete` | Move to Trash (asks first in Trash) |
-| `Shift+Delete` | Delete permanently, after confirmation |
+| `Delete` | Move to Trash; asks "Are you sure?" (Yes or Enter) |
+| `Shift+Delete` | Delete permanently; asks "Are you sure?" (Yes or Enter) |
 | `Ctrl+Shift+N` | New folder |
 | `Ctrl+I` | Properties |
 | `Ctrl+W` | Close Files |
@@ -113,7 +113,7 @@ highlighted. The other pane can be driven with the mouse or with Tab first.
   Items land in `$XDG_DATA_HOME/Trash`, so other file managers can restore them.
 - Copy/move with per-file Replace/Skip/Cancel on conflicts, merge for folders,
   cross-filesystem moves, progress in the status bar, and Cancel.
-- Rename, new folder, permanent delete, properties, `xdg-open`.
+- Rename, new folder, permanent delete, properties, `xdg-open`. Deleting always asks first.
 - Total Commander-style function-key bar and `F3` lister (text, hex, images).
 - Hidden files, sorting by name/size/modified, grid/list toggle.
 - Everything is keyboard operable; the mouse works too.

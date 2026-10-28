@@ -398,7 +398,13 @@ Item {
     }
     var paths = pane.selectionPaths()
     if (paths.length === 0) return
-    backend.request("trash", { paths: paths })
+    pendingPaths = paths
+    pendingAction = "trash"
+    var count = paths.length
+    openDialog("confirm", "Are you sure?",
+               count + (count === 1 ? " item" : " items") + " will be moved to Trash.",
+               [{ label: "No", action: "cancel" },
+                { label: "Yes", action: "accept", primary: true }], false)
   }
 
   function confirmDelete() {
@@ -407,19 +413,19 @@ Item {
     pendingPaths = paths
     pendingAction = "delete"
     var count = paths.length
-    openDialog("confirm", "Delete permanently?",
+    openDialog("confirm", "Are you sure?",
                count + (count === 1 ? " item" : " items") +
                " will be deleted permanently. This cannot be undone.",
-               [{ label: "Cancel", action: "cancel" },
-                { label: "Delete", action: "accept", danger: true }], true)
+               [{ label: "No", action: "cancel" },
+                { label: "Yes", action: "accept", primary: true, danger: true }], true)
   }
 
   function confirmEmptyTrash() {
     pendingAction = "emptyTrash"
-    openDialog("confirm", "Empty Trash?",
+    openDialog("confirm", "Are you sure?",
                "Every item in the Trash will be deleted permanently. This cannot be undone.",
-               [{ label: "Cancel", action: "cancel" },
-                { label: "Empty Trash", action: "accept", danger: true }], true)
+               [{ label: "No", action: "cancel" },
+                { label: "Yes", action: "accept", primary: true, danger: true }], true)
   }
 
   function restoreSelection() {
@@ -623,7 +629,9 @@ Item {
     }
 
     if (dialog === "confirm") {
-      if (pendingAction === "delete")
+      if (pendingAction === "trash")
+        backend.request("trash", { paths: pendingPaths })
+      else if (pendingAction === "delete")
         backend.request("delete", { paths: pendingPaths })
       else if (pendingAction === "emptyTrash")
         backend.request("emptyTrash", {})
@@ -865,7 +873,7 @@ Item {
         event.accepted = true
       } else if (key === Qt.Key_Return || key === Qt.Key_Enter) {
         if (dialog === "confirm") {
-          runDialogAction("cancel")
+          runDialogAction("accept")
           event.accepted = true
         } else if (dialog === "conflict") {
           runDialogAction("skip")
