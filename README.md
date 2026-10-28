@@ -12,6 +12,19 @@ drawn with the Omarchy shell theme tokens (colors, corner radius, font scale)
 and the filesystem work happens in a small Python backend, so it follows the
 active Omarchy theme and needs no extra packages.
 
+![OmaNCommander](preview.png)
+
+## Dependencies and permissions
+
+- Omarchy Quattro / Quickshell and Python 3 (standard library only).
+- GIO (`gio open`) for opening files in the desktop default application.
+- The IBM VGA font is bundled; no font package is required.
+- The plugin runs inside the long-lived Omarchy shell with your user
+  permissions. The Python backend has no network access, does not use a shell
+  for file operations, and does not request root. It can read and write every
+  file you can.
+- It starts one backend process for the plugin, not a second Quickshell.
+
 ## Install
 
 On an Omarchy Quattro machine:
@@ -25,7 +38,7 @@ omarchy plugin enable popkenr.omancommander
 Or publish the repo and install it the normal way:
 
 ```bash
-omarchy plugin add https://github.com/<you>/omancommander.git
+omarchy plugin add https://github.com/popken-it/omancommander.git
 omarchy plugin enable popkenr.omancommander
 ```
 
@@ -37,6 +50,15 @@ omarchy plugin disable popkenr.files
 omarchy plugin remove popkenr.files
 omarchy plugin remove popkenr.omacommander
 ```
+
+To remove it:
+
+```bash
+omarchy plugin remove popkenr.omancommander
+```
+
+Places state stays at `$XDG_STATE_HOME/omarchy/files-places.json`; delete it
+if you do not want to keep it.
 
 A folder icon appears in the bar. Click it to open OmaNCommander. A hotkey is not
 installed by default; add one to `~/.config/hypr/bindings.conf`:

@@ -296,6 +296,7 @@ Item {
       return
     }
     if (ultraRetro) {
+      sidebarVisible = true
       split = true
       viewMode = "list"
     }
@@ -1225,7 +1226,8 @@ Item {
             retro: root.retro
             ultraRetro: root.ultraRetro
             fontFamily: root.uiFont
-            glyph: root.ultraRetro ? "≡" : "▤"
+            visible: !root.ultraRetro
+            glyph: "▤"
             active: root.sidebarVisible
             onClicked: root.sidebarVisible = !root.sidebarVisible
           }
@@ -1309,7 +1311,7 @@ Item {
             retro: root.retro
             ultraRetro: root.ultraRetro
             fontFamily: root.uiFont
-            glyph: root.ultraRetro ? "≡" : "⋮"
+            glyph: root.ultraRetro ? "=" : "⋮"
             active: root.menuVisible
             onClicked: root.menuVisible ? (root.menuVisible = false) : root.openAppMenu()
           }
@@ -1334,8 +1336,8 @@ Item {
           Flickable {
             id: crumbFlick
             anchors.fill: parent
-            anchors.topMargin: Style.space(8)
-            anchors.bottomMargin: Style.space(8)
+            anchors.topMargin: root.ultraRetro ? Style.space(2) : Style.space(8)
+            anchors.bottomMargin: root.ultraRetro ? Style.space(2) : Style.space(8)
             visible: !root.searchActive && !root.locationMode
             clip: true
             contentWidth: crumbRow.width
@@ -1407,8 +1409,8 @@ Item {
           Rectangle {
             visible: root.locationMode
             anchors.fill: parent
-            anchors.topMargin: Style.space(8)
-            anchors.bottomMargin: Style.space(8)
+            anchors.topMargin: root.ultraRetro ? Style.space(2) : Style.space(8)
+            anchors.bottomMargin: root.ultraRetro ? Style.space(2) : Style.space(8)
             radius: root.ultraRetro ? 0 : Style.space(7)
             color: Util.alpha(root.ink, 0.06)
             border.width: 1
@@ -1435,8 +1437,8 @@ Item {
           Rectangle {
             visible: root.searchActive
             anchors.fill: parent
-            anchors.topMargin: Style.space(8)
-            anchors.bottomMargin: Style.space(8)
+            anchors.topMargin: root.ultraRetro ? Style.space(2) : Style.space(8)
+            anchors.bottomMargin: root.ultraRetro ? Style.space(2) : Style.space(8)
             radius: root.ultraRetro ? 0 : Style.space(7)
             color: Util.alpha(root.ink, 0.06)
             border.width: 1
