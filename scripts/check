@@ -22,8 +22,14 @@ for root, dirs, files in os.walk("."):
 print("manifest and layout ok")
 PY
 
-if command -v qmllint >/dev/null 2>&1 && [ -n "${OMARCHY_PATH:-}" ]; then
+if [ -n "${OMARCHY_PATH:-}" ] && command -v qmllint >/dev/null 2>&1; then
   qmllint -I "$OMARCHY_PATH/shell" qml/*.qml
 else
   echo "qmllint skipped: run on an Omarchy machine with OMARCHY_PATH set"
+fi
+
+if [ -n "${OMARCHY_PATH:-}" ] && command -v qmltestrunner >/dev/null 2>&1; then
+  qmltestrunner -input tests/ui -import "$OMARCHY_PATH/shell"
+else
+  echo "qmltestrunner skipped: run on an Omarchy machine with OMARCHY_PATH set"
 fi

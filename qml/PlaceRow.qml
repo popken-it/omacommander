@@ -12,6 +12,12 @@ Item {
   property bool current: false
   property bool removable: false
   property real fontScale: 1.0
+  property bool retro: false
+
+  readonly property color ink: retro ? "#c0c0c0" : Commons.Color.popups.text
+  readonly property color accent: retro ? "#ffff55" : Commons.Color.accent
+  readonly property color hoverBg: retro ? "#3300aaaa" : Util.alpha(Commons.Color.popups.text, 0.07)
+  readonly property color selectedBg: retro ? "#005f5f" : Util.alpha(Commons.Color.accent, 0.18)
 
   signal clicked()
   signal removeClicked()
@@ -23,8 +29,8 @@ Item {
     anchors.topMargin: 1
     anchors.bottomMargin: 1
     radius: Style.space(6)
-    color: root.current ? Util.alpha(Commons.Color.accent, 0.18)
-                        : (rowMouse.containsMouse ? Util.alpha(Commons.Color.popups.text, 0.07) : "transparent")
+    color: root.current ? root.selectedBg
+                        : (rowMouse.containsMouse ? root.hoverBg : "transparent")
   }
 
   Image {
@@ -45,7 +51,7 @@ Item {
     text: root.label
     textFormat: Text.PlainText
     elide: Text.ElideRight
-    color: root.current ? Commons.Color.accent : Commons.Color.popups.text
+    color: root.current ? root.accent : root.ink
     font.family: "sans-serif"
     font.pixelSize: Math.max(1, Math.round(Style.font.body * root.fontScale))
   }
@@ -64,7 +70,7 @@ Item {
     anchors.verticalCenter: parent.verticalCenter
     visible: root.removable && (rowMouse.containsMouse || root.current)
     text: "✕"
-    color: Util.alpha(Commons.Color.popups.text, 0.55)
+    color: Util.alpha(root.ink, 0.55)
     font.family: "sans-serif"
     font.pixelSize: Math.max(1, Math.round(Style.font.caption * root.fontScale))
 

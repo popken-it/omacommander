@@ -53,16 +53,19 @@ Item {
   property int histIndex: -1
   readonly property int historyLimit: 100
   property bool searchMode: false
+  property bool searchTruncated: false
   property string searchQuery: ""
   property var searchEntries: []
   property string revealPath: ""
   property int columns: 1
 
-  property color ink: Commons.Color.popups.text
-  property color accent: Commons.Color.accent
-  property color line: Util.alpha(Commons.Color.popups.text, 0.12)
-  property color hoverBg: Util.alpha(Commons.Color.popups.text, 0.07)
-  property color selectedBg: Util.alpha(Commons.Color.accent, 0.22)
+  property bool retro: false
+  property color ink: retro ? "#c0c0c0" : Commons.Color.popups.text
+  property color accent: retro ? "#ffff55" : Commons.Color.accent
+  property color danger: retro ? "#ff5555" : Commons.Color.urgent
+  property color line: retro ? "#00aaaa" : Util.alpha(Commons.Color.popups.text, 0.12)
+  property color hoverBg: retro ? "#3300aaaa" : Util.alpha(Commons.Color.popups.text, 0.07)
+  property color selectedBg: retro ? "#005f5f" : Util.alpha(Commons.Color.accent, 0.22)
 
   signal paneActivated()
   signal openPath(string path)
@@ -123,6 +126,7 @@ Item {
     loading = true
     trash = next === trashPath
     searchMode = false
+    searchTruncated = false
     searchQuery = ""
     searchEntries = []
     refresh()
@@ -391,8 +395,9 @@ Item {
 
   // ---------------------------------------------------------------- search
 
-  function setSearchResults(list, query) {
+  function setSearchResults(list, query, truncated) {
     searchMode = true
+    searchTruncated = truncated === true
     searchQuery = String(query || "")
     searchEntries = list || []
     cursor = 0
@@ -407,6 +412,7 @@ Item {
   function clearSearch() {
     if (!searchMode && searchEntries.length === 0) return
     searchMode = false
+    searchTruncated = false
     searchQuery = ""
     searchEntries = []
     rebuild()
@@ -808,12 +814,15 @@ Item {
             x: Style.space(38) + root.nameWidth + root.sizeWidth + Style.space(14)
             width: root.dateWidth
             anchors.verticalCenter: parent.verticalCenter
-            text: root.dateLabel(listRow.modelData)
-            color: Util.alpha(root.ink, 0.65)
+            text: listRow.modelData.parentLabel
+                  ? listRow.modelData.parentLabel : root.dateLabel(listRow.modelData)
+            color: listRow.modelData.parentLabel
+                   ? Util.alpha(root.accent, 0.85) : Util.alpha(root.ink, 0.65)
             font.family: "sans-serif"
             font.pixelSize: root.fCaption
-            horizontalAlignment: Text.AlignRight
-            elide: Text.ElideRight
+            horizontalAlignment: listRow.modelData.parentLabel
+                                 ? Text.AlignLeft : Text.AlignRight
+            elide: Text.ElideMiddle
           }
 
           MouseArea {
@@ -861,7 +870,7 @@ Item {
       visible: root.error !== ""
       text: root.error
       textFormat: Text.PlainText
-      color: Commons.Color.urgent
+      color: root.danger
       font.family: "sans-serif"
       font.pixelSize: root.fBody
       horizontalAlignment: Text.AlignHCenter

@@ -20,16 +20,17 @@ Item {
   readonly property string trashPath: ":trash:"
   readonly property string home: backend.home || Quickshell.env("HOME") || "/"
 
-  readonly property color panelBg: Commons.Color.popups.background
-  readonly property color ink: Commons.Color.popups.text
-  readonly property color accent: Commons.Color.accent
-  readonly property color danger: Commons.Color.urgent
-  readonly property color scrim: Commons.Color.menu.scrim
-  readonly property color line: Util.alpha(Commons.Color.popups.text, 0.12)
-  readonly property color hoverBg: Util.alpha(Commons.Color.popups.text, 0.07)
-  readonly property color chromeBg: Util.alpha(Commons.Color.popups.text, 0.035)
-  readonly property color sidebarBg: Util.alpha(Commons.Color.popups.text, 0.02)
-  readonly property color selectedBg: Util.alpha(Commons.Color.accent, 0.18)
+  property bool retro: false
+  readonly property color panelBg: retro ? "#0000a8" : Commons.Color.popups.background
+  readonly property color ink: retro ? "#c0c0c0" : Commons.Color.popups.text
+  readonly property color accent: retro ? "#ffff55" : Commons.Color.accent
+  readonly property color danger: retro ? "#ff5555" : Commons.Color.urgent
+  readonly property color scrim: retro ? "#8000002a" : Commons.Color.menu.scrim
+  readonly property color line: retro ? "#00aaaa" : Util.alpha(Commons.Color.popups.text, 0.12)
+  readonly property color hoverBg: retro ? "#3300aaaa" : Util.alpha(Commons.Color.popups.text, 0.07)
+  readonly property color chromeBg: retro ? "#000080" : Util.alpha(Commons.Color.popups.text, 0.035)
+  readonly property color sidebarBg: retro ? "#000080" : Util.alpha(Commons.Color.popups.text, 0.02)
+  readonly property color selectedBg: retro ? "#005f5f" : Util.alpha(Commons.Color.accent, 0.18)
   readonly property real defaultFontScale: 1.2
   property real fontScale: defaultFontScale
   readonly property int fCaption: Math.max(1, Math.round(Style.font.caption * fontScale))
@@ -145,6 +146,8 @@ Item {
   // ------------------------------------------------------------- open/close
 
   function open(payloadJson) {
+    if (dialog === "conflict" && backend.ready)
+      backend.send({ op: "resolve", choice: "abort" })
     opened = true
     searchActive = false
     searchText = ""
@@ -484,6 +487,7 @@ Item {
       { key: "A− / A+", text: "Smaller or larger text (top right)" },
       { key: "Ctrl+- / Ctrl+=", text: "Smaller or larger text" },
       { key: "Ctrl+0", text: "Reset text to 120%" },
+      { key: "Retro", text: "Classic Norton Commander colours (sidebar switch)" },
       { key: "Ctrl+R", text: "Reload" },
       { key: "Delete", text: "Move to Trash" },
       { key: "Shift+Delete", text: "Delete permanently" }
@@ -809,7 +813,8 @@ Item {
       return text
     }
     var pane = currentPane()
-    if (pane.searchMode) return pane.items.length + " results"
+    if (pane.searchMode)
+      return pane.items.length + (pane.searchTruncated ? "+" : "") + " results"
     var label = pane.items.length + (pane.items.length === 1 ? " item" : " items")
     if (pane.truncated) label += "  ·  more items not shown"
     if (pane.selectedCount > 0)
@@ -1008,7 +1013,8 @@ Item {
         root.showToast(String(data.error), true)
         return
       }
-      root.currentPane().setSearchResults(data.entries || [], data.query || "")
+      root.currentPane().setSearchResults(data.entries || [], data.query || "",
+                                          data.truncated === true)
     }
 
     onJobEvent: function(data) {
@@ -1163,21 +1169,25 @@ Item {
           spacing: 1
 
           IconButton {
+            retro: root.retro
             glyph: "▤"
             active: root.sidebarVisible
             onClicked: root.sidebarVisible = !root.sidebarVisible
           }
           IconButton {
+            retro: root.retro
             glyph: "←"
             enabled: root.currentPane().canGoBack
             onClicked: root.currentPane().goBack()
           }
           IconButton {
+            retro: root.retro
             glyph: "→"
             enabled: root.currentPane().canGoForward
             onClicked: root.currentPane().goForward()
           }
           IconButton {
+            retro: root.retro
             glyph: "↑"
             enabled: !root.currentPane().trash
             onClicked: root.currentPane().goUp()
@@ -1192,33 +1202,40 @@ Item {
           spacing: 1
 
           IconButton {
+            retro: root.retro
             glyph: "A−"
             onClicked: root.changeFontSize(-0.1)
           }
           IconButton {
+            retro: root.retro
             glyph: "A+"
             onClicked: root.changeFontSize(0.1)
           }
           IconButton {
+            retro: root.retro
             glyph: "⌕"
             active: root.searchActive
             onClicked: root.searchActive ? root.finishSearch() : root.openSearch("")
           }
           IconButton {
+            retro: root.retro
             glyph: root.viewMode === "grid" ? "☰" : "▦"
             onClicked: root.viewMode = root.viewMode === "grid" ? "list" : "grid"
           }
           IconButton {
+            retro: root.retro
             glyph: "▥"
             active: root.split
             onClicked: root.toggleSplit()
           }
           IconButton {
+            retro: root.retro
             glyph: "⋮"
             active: root.menuVisible
             onClicked: root.menuVisible ? (root.menuVisible = false) : root.openAppMenu()
           }
           IconButton {
+            retro: root.retro
             glyph: "✕"
             onClicked: root.dismiss()
           }
@@ -1464,6 +1481,7 @@ Item {
 
                 width: sidebarColumn.width
                 fontScale: root.fontScale
+                retro: root.retro
                 label: modelData.label
                 icon: modelData.icon
                 current: root.currentPane().path === modelData.path
@@ -1492,6 +1510,7 @@ Item {
 
                 width: sidebarColumn.width
                 fontScale: root.fontScale
+                retro: root.retro
                 label: modelData.label
                 icon: modelData.icon
                 current: root.currentPane().path === modelData.path
@@ -1522,10 +1541,28 @@ Item {
 
                 width: sidebarColumn.width
                 fontScale: root.fontScale
+                retro: root.retro
                 label: modelData.label
                 icon: modelData.icon
                 current: root.currentPane().path === modelData.path
                 onClicked: root.choosePath(modelData.path)
+              }
+            }
+
+            Item {
+              width: parent.width
+              height: Style.space(34)
+
+              RetroToggle {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                checked: root.retro
+                fontScale: root.fontScale
+                ink: root.ink
+                accent: root.accent
+                panelBg: root.panelBg
+                onToggled: root.retro = !root.retro
               }
             }
 
@@ -1551,6 +1588,7 @@ Item {
           height: content.height
           service: backend
           fontScale: root.fontScale
+          retro: root.retro
           active: root.activePane === 0
           splitMode: root.split
           viewMode: root.viewMode
@@ -1586,6 +1624,7 @@ Item {
           height: content.height
           service: backend
           fontScale: root.fontScale
+          retro: root.retro
           active: root.activePane === 1
           splitMode: root.split
           viewMode: root.viewMode
@@ -1771,7 +1810,7 @@ Item {
         x: Math.max(Style.space(8), Math.min(root.menuX, card.width - width - Style.space(8)))
         y: Math.max(Style.space(8), Math.min(root.menuY, card.height - height - Style.space(8)))
         radius: Style.space(9)
-        color: Commons.Color.menu.background
+        color: root.panelBg
         border.width: 1
         border.color: Util.alpha(root.ink, 0.22)
 
@@ -1868,7 +1907,7 @@ Item {
         height: Math.min(card.height - Style.space(48),
                          dialogColumn.implicitHeight + Style.space(40))
         radius: Style.space(10)
-        color: Commons.Color.popups.background
+        color: root.panelBg
         border.width: 1
         border.color: Util.alpha(root.ink, 0.25)
 
@@ -2029,6 +2068,7 @@ Item {
                   primary: modelData.primary === true
                   danger: modelData.danger === true
                   fontScale: root.fontScale
+                  retro: root.retro
                   onClicked: root.runDialogAction(modelData.action)
                 }
               }
@@ -2059,7 +2099,7 @@ Item {
         width: Math.min(card.width - Style.space(56), Style.space(960))
         height: Math.min(card.height - Style.space(56), Style.space(720))
         radius: Style.space(10)
-        color: Commons.Color.popups.background
+        color: root.panelBg
         border.width: 1
         border.color: Util.alpha(root.ink, 0.25)
         clip: true
@@ -2109,6 +2149,7 @@ Item {
           }
 
           IconButton {
+            retro: root.retro
             id: viewerClose
             anchors.right: parent.right
             anchors.rightMargin: Style.space(6)
@@ -2130,6 +2171,8 @@ Item {
             anchors.fill: parent
             visible: root.viewerImage !== ""
             source: root.viewerImage !== "" ? Util.fileUrl(root.viewerImage) : ""
+            sourceSize.width: 4096
+            sourceSize.height: 4096
             fillMode: Image.PreserveAspectFit
             asynchronous: true
             cache: false
@@ -2190,7 +2233,7 @@ Item {
           width: parent.width - Style.space(24)
           text: root.toastText
           textFormat: Text.PlainText
-          color: root.toastAngry ? Commons.Color.foreground : root.panelBg
+          color: root.toastAngry ? (root.retro ? "#ffffff" : Commons.Color.foreground) : root.panelBg
           font.family: "sans-serif"
           font.pixelSize: root.fBody
           horizontalAlignment: Text.AlignHCenter

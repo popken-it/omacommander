@@ -9,8 +9,9 @@ Item {
 
   property string glyph: ""
   property bool active: false
-  property color ink: Commons.Color.popups.text
-  property color accent: Commons.Color.accent
+  property bool retro: false
+  property color ink: retro ? "#c0c0c0" : Commons.Color.popups.text
+  property color accent: retro ? "#ffff55" : Commons.Color.accent
 
   signal clicked()
 

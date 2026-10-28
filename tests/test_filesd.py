@@ -421,6 +421,33 @@ class FilesdTest(unittest.TestCase):
         with open(os.path.join(merged, "two.txt")) as handle:
             self.assertEqual(handle.read(), "2")
 
+    def test_move_broken_symlink(self):
+        link = os.path.join(self.home, "broken")
+        os.symlink(os.path.join(self.home, "missing-target"), link)
+        dest = os.path.join(self.home, "Documents")
+        ident = self.next_id()
+        self.client.send(op="move", id=ident, sources=[link], dest=dest)
+        done = self.client.wait("job", ident)
+        self.assertTrue(done["ok"], done)
+        moved = os.path.join(dest, "broken")
+        self.assertTrue(os.path.islink(moved))
+        self.assertEqual(os.readlink(moved), os.path.join(self.home, "missing-target"))
+        self.assertFalse(os.path.lexists(link))
+
+    def test_restore_broken_symlink(self):
+        link = os.path.join(self.home, "broken-restore")
+        os.symlink(os.path.join(self.home, "missing-target"), link)
+        ident = self.next_id()
+        self.client.send(op="trash", id=ident, paths=[link])
+        self.assertTrue(self.client.wait("job", ident)["ok"])
+        item = next(e for e in self.listing(TRASH)["entries"] if e["name"] == "broken-restore")
+        ident = self.next_id()
+        self.client.send(op="restore", id=ident, paths=[item["path"]])
+        done = self.client.wait("job", ident)
+        self.assertTrue(done["ok"], done)
+        self.assertTrue(os.path.islink(link))
+        self.assertEqual(os.readlink(link), os.path.join(self.home, "missing-target"))
+
     def test_move_and_delete(self):
         src = os.path.join(self.home, "note.txt")
         dest = os.path.join(self.home, "Documents")

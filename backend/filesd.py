@@ -334,7 +334,7 @@ class Trash:
                 errors.append("%s: parent folder is gone" % original)
                 continue
             try:
-                if os.stat(full).st_dev == os.stat(parent).st_dev:
+                if os.lstat(full).st_dev == os.stat(parent).st_dev:
                     os.rename(full, original)
                 else:
                     copy_item(full, original, None)
@@ -345,16 +345,14 @@ class Trash:
                 errors.append("%s: %s" % (os.path.basename(full), exc))
         return restored, errors
 
-    def empty(self):
+    def empty(self, job=None):
         errors = []
         for directory in (self.files, self.info):
             try:
                 for name in os.listdir(directory):
-                    target = os.path.join(directory, name)
-                    if os.path.isdir(target) and not os.path.islink(target):
-                        shutil.rmtree(target)
-                    else:
-                        os.remove(target)
+                    if job is not None:
+                        job.check()
+                    remove_item(os.path.join(directory, name), job)
             except FileNotFoundError:
                 pass
             except OSError as exc:
@@ -378,11 +376,28 @@ class Cancelled(Exception):
     pass
 
 
-def remove_item(path):
-    if os.path.isdir(path) and not os.path.islink(path):
-        shutil.rmtree(path)
-    else:
+def remove_item(path, job=None):
+    if not os.path.isdir(path) or os.path.islink(path):
+        if job is not None:
+            job.check()
         os.remove(path)
+        return
+    for root, dirs, files in os.walk(path, topdown=False, followlinks=False):
+        if job is not None:
+            job.check()
+        for name in files:
+            if job is not None:
+                job.check()
+            os.remove(os.path.join(root, name))
+        for name in dirs:
+            target = os.path.join(root, name)
+            if os.path.islink(target) or not os.path.isdir(target):
+                if job is not None:
+                    job.check()
+                os.remove(target)
+            else:
+                os.rmdir(target)
+    os.rmdir(path)
 
 
 class Job:
@@ -482,12 +497,28 @@ def copy_item(src, dst, job):
         return
 
     if os.path.isdir(src):
-        os.makedirs(dst, exist_ok=True)
-        for name in sorted(os.listdir(src), key=natural_key):
-            if job is not None:
-                job.check()
-            copy_item(os.path.join(src, name), os.path.join(dst, name), job)
-        shutil.copystat(src, dst)
+        if os.path.lexists(dst):
+            # Merging into an existing folder is handled by copy_into; direct
+            # calls with an existing destination keep the old merge behaviour.
+            os.makedirs(dst, exist_ok=True)
+            for name in sorted(os.listdir(src), key=natural_key):
+                if job is not None:
+                    job.check()
+                copy_item(os.path.join(src, name), os.path.join(dst, name), job)
+            shutil.copystat(src, dst)
+            return
+        parent = os.path.dirname(dst) or "."
+        temp = tempfile.mkdtemp(prefix=".filesd-", dir=parent)
+        try:
+            for name in sorted(os.listdir(src), key=natural_key):
+                if job is not None:
+                    job.check()
+                copy_item(os.path.join(src, name), os.path.join(temp, name), job)
+            shutil.copystat(src, temp)
+            os.rename(temp, dst)
+        except Exception:
+            remove_item(temp)
+            raise
         return
 
     if not os.path.isfile(src):
@@ -525,7 +556,7 @@ def copy_into(src, dest_dir, job):
                 return False
             if choice != "replace":
                 raise Cancelled()
-            remove_item(target)
+            remove_item(target, job)
     copy_item(src, target, job)
     return True
 
@@ -959,7 +990,7 @@ class Server:
                 job.error("refusing to delete %s" % path)
                 continue
             try:
-                remove_item(path)
+                remove_item(path, job)
                 Trash().forget(path)
                 job.progress(os.path.basename(path.rstrip("/")))
             except Exception as exc:
@@ -978,7 +1009,7 @@ class Server:
         return "Restored %d" % restored if restored else "Nothing restored"
 
     def job_empty_trash(self, job):
-        errors = Trash().empty()
+        errors = Trash().empty(job)
         for error in errors:
             job.error(error)
         return "Trash emptied" if not errors else "Trash not fully emptied"
@@ -1013,10 +1044,10 @@ def move_into(source, dest_dir, job):
             return False
         if choice != "replace":
             raise Cancelled()
-        remove_item(target)
+        remove_item(target, job)
 
     try:
-        if os.stat(source).st_dev == os.stat(dest_dir).st_dev:
+        if os.lstat(source).st_dev == os.stat(dest_dir).st_dev:
             os.rename(source, target)
         else:
             copy_item(source, target, job)

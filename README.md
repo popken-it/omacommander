@@ -110,6 +110,8 @@ highlighted. The other pane can be driven with the mouse or with Tab first.
   with item/selection size and free space.
 - Starts in dual-pane and list view at 120% text. The `A−` / `A+` buttons at
   the top right scale the interface text from 80% to 160%.
+- A **Retro** switch at the bottom of the sidebar turns the colours into the
+  classic Norton Commander blue/cyan/yellow palette.
 - Search below the current folder, case-insensitive, capped at 400 results.
 - Freedesktop home trash: move, list with original location, restore, empty.
   Items land in `$XDG_DATA_HOME/Trash`, so other file managers can restore them.
@@ -148,8 +150,8 @@ window keeps painting, can show progress, and can cancel. Standard library only:
 
 That runs the backend tests, a `SyntaxWarning`-as-error compile and the
 manifest/entry-point checks. On an Omarchy machine with `OMARCHY_PATH` set it
-also runs `qmllint`; elsewhere that step is skipped. The same script runs in
-GitHub Actions.
+also runs `qmllint` and the QML navigation tests in `tests/ui`; elsewhere those
+steps are skipped. The Python checks run in GitHub Actions.
 
 ## License
 
