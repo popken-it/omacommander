@@ -30,6 +30,7 @@ Item {
   property int seq: 0
   property var queue: []
 
+  signal backendReady()
   signal placesReady(var data)
   signal bookmarksReady(var data)
   signal listing(var data)
@@ -93,6 +94,7 @@ Item {
       root.ready = true
       root.home = String(event.home || root.home)
       root.flush()
+      root.backendReady()
       break
     case "places":
       root.home = String(event.home || root.home)

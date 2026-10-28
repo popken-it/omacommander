@@ -9,7 +9,6 @@ Item {
 
   property string glyph: ""
   property bool active: false
-  property bool danger: false
   property color ink: Commons.Color.popups.text
   property color accent: Commons.Color.accent
 
@@ -31,7 +30,7 @@ Item {
     anchors.centerIn: parent
     text: root.glyph
     textFormat: Text.PlainText
-    color: root.active ? root.accent : (root.danger ? Commons.Color.urgent : root.ink)
+    color: root.active ? root.accent : root.ink
     font.family: "sans-serif"
     font.pixelSize: Style.font.title
     verticalAlignment: Text.AlignVCenter

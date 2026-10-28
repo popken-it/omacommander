@@ -75,6 +75,8 @@ Other keys:
 | `Esc` | Clear search/menu/dialog/viewer, otherwise close |
 | `Ctrl+H` | Show hidden files |
 | `Ctrl+D` | Add the current folder to Places |
+| `Ctrl+=` / `Ctrl+-` | Larger / smaller text |
+| `Ctrl+0` | Reset text to 120% |
 | `Ctrl+R` | Reload |
 | `Ctrl+A` | Select all |
 | `Ctrl+C` / `Ctrl+X` / `Ctrl+V` | Copy / cut / paste |
@@ -141,14 +143,13 @@ listings. One mutating operation at a time runs on a worker thread, so the
 window keeps painting, can show progress, and can cancel. Standard library only:
 
 ```bash
-python3 -m unittest discover -s tests
+./scripts/check
 ```
 
-QML check on an Omarchy machine:
-
-```bash
-qmllint -I "$OMARCHY_PATH/shell" qml/*.qml
-```
+That runs the backend tests, a `SyntaxWarning`-as-error compile and the
+manifest/entry-point checks. On an Omarchy machine with `OMARCHY_PATH` set it
+also runs `qmllint`; elsewhere that step is skipped. The same script runs in
+GitHub Actions.
 
 ## License
 

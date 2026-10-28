@@ -442,19 +442,6 @@ def safe_mtime(path):
         return 0.0
 
 
-def unique_copy_target(directory, name):
-    candidate = name
-    index = 1
-    while os.path.lexists(os.path.join(directory, candidate)):
-        index += 1
-        stem, dot, ext = name.rpartition(".")
-        if dot and stem:
-            candidate = "%s (%d).%s" % (stem, index, ext)
-        else:
-            candidate = "%s (%d)" % (name, index)
-    return os.path.join(directory, candidate)
-
-
 def copy_file(src, dst, job):
     job.check()
     handle, temp = tempfile.mkstemp(prefix=".filesd-", dir=os.path.dirname(dst) or ".")
@@ -480,7 +467,7 @@ def copy_file(src, dst, job):
     job.progress(os.path.basename(src))
 
 
-def copy_item(src, dst, job, progress=None):
+def copy_item(src, dst, job):
     """Copy one path. `job` may be None for internal copies (trash/restore)."""
     if job is not None:
         job.check()
@@ -492,8 +479,6 @@ def copy_item(src, dst, job, progress=None):
         os.symlink(link_target, dst)
         if job is not None:
             job.progress(os.path.basename(src))
-        elif progress:
-            progress(os.path.basename(src))
         return
 
     if os.path.isdir(src):
@@ -501,28 +486,24 @@ def copy_item(src, dst, job, progress=None):
         for name in sorted(os.listdir(src), key=natural_key):
             if job is not None:
                 job.check()
-            copy_item(os.path.join(src, name), os.path.join(dst, name), job, progress)
+            copy_item(os.path.join(src, name), os.path.join(dst, name), job)
         shutil.copystat(src, dst)
         return
 
     if not os.path.isfile(src):
         raise ValueError("not a regular file: %s" % src)
-    copy_file(src, dst, job if job is not None else _NullJob(progress))
+    copy_file(src, dst, job if job is not None else _NullJob())
 
 
 class _NullJob:
-    def __init__(self, progress):
-        self.progress_cb = progress
-
     def check(self):
         return
 
     def progress(self, name):
-        if self.progress_cb:
-            self.progress_cb(name)
+        return
 
 
-def copy_into(src, dest_dir, job, overwrite_never=False):
+def copy_into(src, dest_dir, job):
     name = os.path.basename(src.rstrip("/")) or "item"
     target = os.path.join(dest_dir, name)
     src_real = os.path.realpath(src)
@@ -532,9 +513,7 @@ def copy_into(src, dest_dir, job, overwrite_never=False):
     if os.path.isdir(src) and not os.path.islink(src) and is_within(target_real, src_real):
         raise ValueError("cannot copy a folder into itself")
     if os.path.lexists(target):
-        if overwrite_never:
-            target = unique_copy_target(dest_dir, name)
-        elif os.path.isdir(src) and not os.path.islink(src) and os.path.isdir(target) and not os.path.islink(target):
+        if os.path.isdir(src) and not os.path.islink(src) and os.path.isdir(target) and not os.path.islink(target):
             # Merge into the existing folder, prompting only on file clashes.
             for child in sorted(os.listdir(src), key=natural_key):
                 copy_into(os.path.join(src, child), target, job)
@@ -664,17 +643,7 @@ class Server:
     def places_event(self, job_id):
         home = home_dir()
         places = standard_places()
-        mounts = []
-        user = os.path.basename(home)
-        for base in ("/run/media/" + user, "/media/" + user):
-            try:
-                names = sorted(os.listdir(base), key=natural_key)
-            except OSError:
-                continue
-            for name in names:
-                full = os.path.join(base, name)
-                if os.path.isdir(full):
-                    mounts.append({"label": name, "path": full, "icon": "drive-harddisk", "kind": "mount"})
+        mounts = mounted_places()
         return {"event": "places", "id": job_id, "home": home, "places": places,
                 "mounts": mounts, "bookmarks": bookmark_entries()}
 
@@ -690,7 +659,9 @@ class Server:
             return bookmarks_event(job_id, False, "Trash cannot be added to Places")
         if not os.path.isdir(full):
             return bookmarks_event(job_id, False, "Only folders can be added to Places")
-        known = [entry["path"] for entry in standard_places()] + read_bookmarks()
+        known = ([entry["path"] for entry in standard_places()]
+                 + [entry["path"] for entry in mounted_places()]
+                 + read_bookmarks())
         if full in known:
             return bookmarks_event(job_id, False, "Already in Places")
         paths = read_bookmarks()
@@ -730,13 +701,13 @@ class Server:
             if not os.path.isdir(full):
                 raise NotADirectoryError(path)
             names = os.listdir(full)
+            if not hidden:
+                names = [name for name in names if not name.startswith(".")]
             truncated = len(names) > LIST_LIMIT
             if truncated:
                 names = sorted(names, key=natural_key)[:LIST_LIMIT]
             entries = []
             for name in names:
-                if not hidden and name.startswith("."):
-                    continue
                 item = entry_for(os.path.join(full, name), name=name)
                 if item is not None:
                     entries.append(item)
@@ -1077,6 +1048,23 @@ def xdg_user_dir(key, fallback):
     except OSError:
         pass
     return os.path.join(home_dir(), fallback)
+
+
+def mounted_places():
+    home = home_dir()
+    user = os.path.basename(home)
+    mounts = []
+    for base in ("/run/media/" + user, "/media/" + user):
+        try:
+            names = sorted(os.listdir(base), key=natural_key)
+        except OSError:
+            continue
+        for name in names:
+            full = os.path.join(base, name)
+            if os.path.isdir(full):
+                mounts.append({"label": name, "path": full,
+                               "icon": "drive-harddisk", "kind": "mount"})
+    return mounts
 
 
 def standard_places():

@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+python3 -W error::SyntaxWarning -m py_compile backend/filesd.py
+python3 -m unittest discover -s tests
+
+python3 - <<'PY'
+import json
+import os
+
+manifest = json.load(open("manifest.json"))
+assert manifest["schemaVersion"] == 1
+assert manifest["id"] and not manifest["id"].startswith("omarchy.")
+for path in manifest["entryPoints"].values():
+    assert os.path.isfile(path), path
+for root, dirs, files in os.walk("."):
+    if ".git" in root.split(os.sep):
+        continue
+    for name in dirs + files:
+        assert not os.path.islink(os.path.join(root, name)), name
+print("manifest and layout ok")
+PY
+
+if command -v qmllint >/dev/null 2>&1 && [ -n "${OMARCHY_PATH:-}" ]; then
+  qmllint -I "$OMARCHY_PATH/shell" qml/*.qml
+else
+  echo "qmllint skipped: run on an Omarchy machine with OMARCHY_PATH set"
+fi

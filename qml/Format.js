@@ -37,9 +37,3 @@ function naturalKey(value) {
     return "\u0001" + ("0000000000" + match).slice(-10)
   })
 }
-
-function joinPath(directory, name) {
-  var base = String(directory || "").replace(/\/+$/, "")
-  if (!base) base = ""
-  return base + "/" + name
-}

@@ -51,6 +51,7 @@ Item {
   property real freeBytes: 0
   property var history: []
   property int histIndex: -1
+  readonly property int historyLimit: 100
   property bool searchMode: false
   property string searchQuery: ""
   property var searchEntries: []
@@ -103,6 +104,8 @@ Item {
     if (push !== false) {
       var nextHistory = history.slice(0, histIndex + 1)
       nextHistory.push(next)
+      if (nextHistory.length > historyLimit)
+        nextHistory = nextHistory.slice(nextHistory.length - historyLimit)
       history = nextHistory
       histIndex = nextHistory.length - 1
     }
@@ -269,10 +272,6 @@ Item {
     selected = ({})
     anchor = -1
     updateStats()
-  }
-
-  function cutSelection(paths) {
-    cutPaths = paths || []
   }
 
   function selectedItems() {

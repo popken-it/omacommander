@@ -30,7 +30,8 @@ Item {
   readonly property color chromeBg: Util.alpha(Commons.Color.popups.text, 0.035)
   readonly property color sidebarBg: Util.alpha(Commons.Color.popups.text, 0.02)
   readonly property color selectedBg: Util.alpha(Commons.Color.accent, 0.18)
-  property real fontScale: 1.2
+  readonly property real defaultFontScale: 1.2
+  property real fontScale: defaultFontScale
   readonly property int fCaption: Math.max(1, Math.round(Style.font.caption * fontScale))
   readonly property int fBodySmall: Math.max(1, Math.round(Style.font.bodySmall * fontScale))
   readonly property int fBody: Math.max(1, Math.round(Style.font.body * fontScale))
@@ -82,7 +83,6 @@ Item {
   property string dialogTitle: ""
   property string dialogText: ""
   property var dialogActions: []
-  property bool dialogDanger: false
   property string pendingAction: ""
   property var pendingPaths: []
   property var props: ({})
@@ -102,6 +102,7 @@ Item {
   property string toastText: ""
   property bool toastAngry: false
   property bool initialised: false
+  property bool recovering: false
 
   function currentPane() { return activePane === 0 ? paneA : paneB }
   function otherPane() { return activePane === 0 ? paneB : paneA }
@@ -404,7 +405,7 @@ Item {
     openDialog("confirm", "Are you sure?",
                count + (count === 1 ? " item" : " items") + " will be moved to Trash.",
                [{ label: "No", action: "cancel" },
-                { label: "Yes", action: "accept", primary: true }], false)
+                { label: "Yes", action: "accept", primary: true }])
   }
 
   function confirmDelete() {
@@ -417,7 +418,7 @@ Item {
                count + (count === 1 ? " item" : " items") +
                " will be deleted permanently. This cannot be undone.",
                [{ label: "No", action: "cancel" },
-                { label: "Yes", action: "accept", primary: true, danger: true }], true)
+                { label: "Yes", action: "accept", primary: true, danger: true }])
   }
 
   function confirmEmptyTrash() {
@@ -425,7 +426,7 @@ Item {
     openDialog("confirm", "Are you sure?",
                "Every item in the Trash will be deleted permanently. This cannot be undone.",
                [{ label: "No", action: "cancel" },
-                { label: "Yes", action: "accept", primary: true, danger: true }], true)
+                { label: "Yes", action: "accept", primary: true, danger: true }])
   }
 
   function restoreSelection() {
@@ -456,7 +457,7 @@ Item {
 
   function openHelp() {
     openDialog("help", "Function keys — Total Commander style", "",
-               [{ label: "Close", action: "close" }], false)
+               [{ label: "Close", action: "close" }])
   }
 
   function helpLines() {
@@ -481,6 +482,8 @@ Item {
       { key: "Ctrl+H", text: "Show hidden files" },
       { key: "Ctrl+D", text: "Add this folder to Places" },
       { key: "A− / A+", text: "Smaller or larger text (top right)" },
+      { key: "Ctrl+- / Ctrl+=", text: "Smaller or larger text" },
+      { key: "Ctrl+0", text: "Reset text to 120%" },
       { key: "Ctrl+R", text: "Reload" },
       { key: "Delete", text: "Move to Trash" },
       { key: "Shift+Delete", text: "Delete permanently" }
@@ -551,12 +554,11 @@ Item {
 
   // ---------------------------------------------------------------- dialogs
 
-  function openDialog(kind, title, text, actions, danger) {
+  function openDialog(kind, title, text, actions) {
     dialog = kind
     dialogTitle = title
     dialogText = text
     dialogActions = actions
-    dialogDanger = danger === true
     Qt.callLater(function() { card.forceActiveFocus() })
   }
 
@@ -564,7 +566,6 @@ Item {
     dialog = kind
     dialogTitle = title
     dialogText = ""
-    dialogDanger = false
     dialogActions = [{ label: "Cancel", action: "cancel" },
                      { label: confirmLabel, action: "accept", primary: true }]
     Qt.callLater(function() {
@@ -578,7 +579,6 @@ Item {
     dialog = ""
     dialogActions = []
     dialogText = ""
-    dialogDanger = false
     pendingAction = ""
     pendingPaths = []
     conflict = ({})
@@ -930,6 +930,9 @@ Item {
     if (ctrl && key === Qt.Key_L) { openLocation(); event.accepted = true; return }
     if (ctrl && key === Qt.Key_H) { toggleHidden(); event.accepted = true; return }
     if (ctrl && key === Qt.Key_D) { addToPlaces(currentPane().path); event.accepted = true; return }
+    if (ctrl && (key === Qt.Key_Plus || key === Qt.Key_Equal)) { changeFontSize(0.1); event.accepted = true; return }
+    if (ctrl && (key === Qt.Key_Minus || key === Qt.Key_Underscore)) { changeFontSize(-0.1); event.accepted = true; return }
+    if (ctrl && key === Qt.Key_0) { fontScale = defaultFontScale; event.accepted = true; return }
     if (ctrl && key === Qt.Key_A) { pane.selectAll(); event.accepted = true; return }
     if (ctrl && key === Qt.Key_C) { copySelection("copy"); event.accepted = true; return }
     if (ctrl && key === Qt.Key_X) { copySelection("cut"); event.accepted = true; return }
@@ -1047,7 +1050,7 @@ Item {
                       "Existing: " + existing + "\nNew: " + incoming,
                       [{ label: "Cancel", action: "cancel" },
                        { label: "Skip", action: "skip", primary: true },
-                       { label: "Replace", action: "replace", danger: true }], false)
+                       { label: "Replace", action: "replace", danger: true }])
     }
 
     onPropsReady: function(data) {
@@ -1057,7 +1060,7 @@ Item {
       }
       root.props = data.props || ({})
       root.openDialog("props", "Properties", "",
-                      [{ label: "Close", action: "close" }], false)
+                      [{ label: "Close", action: "close" }])
     }
 
     onFileReady: function(data) {
@@ -1085,10 +1088,18 @@ Item {
       root.showToast(String(data.message || "Files backend error"), true)
     }
 
+    onBackendReady: function() {
+      if (!root.recovering) return
+      root.recovering = false
+      backend.request("places", {})
+      root.refreshPanes()
+    }
+
     onBackendFailed: function(message) {
       root.job = ({})
       paneA.loading = false
       paneB.loading = false
+      root.recovering = root.opened
       root.showToast(String(message || "Files backend stopped"), true)
     }
   }
@@ -1448,53 +1459,15 @@ Item {
             Repeater {
               model: backend.places
 
-              delegate: Item {
-                id: placeRow
+              delegate: PlaceRow {
                 required property var modelData
 
                 width: sidebarColumn.width
-                height: Style.space(30)
-                readonly property bool current: root.currentPane().path === modelData.path
-
-                Rectangle {
-                  anchors.fill: parent
-                  anchors.topMargin: 1
-                  anchors.bottomMargin: 1
-                  radius: Style.space(6)
-                  color: placeRow.current ? root.selectedBg
-                                         : (placeMouse.containsMouse ? root.hoverBg : "transparent")
-                }
-
-                Image {
-                  x: Style.space(8)
-                  anchors.verticalCenter: parent.verticalCenter
-                  width: Style.space(16)
-                  height: Style.space(16)
-                  source: Quickshell.iconPath(placeRow.modelData.icon, true)
-                  fillMode: Image.PreserveAspectFit
-                }
-
-                Text {
-                  anchors.left: parent.left
-                  anchors.leftMargin: Style.space(32)
-                  anchors.right: parent.right
-                  anchors.rightMargin: Style.space(8)
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: placeRow.modelData.label
-                  textFormat: Text.PlainText
-                  elide: Text.ElideRight
-                  color: placeRow.current ? root.accent : root.ink
-                  font.family: "sans-serif"
-                  font.pixelSize: root.fBody
-                }
-
-                MouseArea {
-                  id: placeMouse
-                  anchors.fill: parent
-                  hoverEnabled: true
-                  cursorShape: Qt.PointingHandCursor
-                  onClicked: root.choosePath(placeRow.modelData.path)
-                }
+                fontScale: root.fontScale
+                label: modelData.label
+                icon: modelData.icon
+                current: root.currentPane().path === modelData.path
+                onClicked: root.choosePath(modelData.path)
               }
             }
 
@@ -1514,72 +1487,17 @@ Item {
             Repeater {
               model: backend.bookmarks
 
-              delegate: Item {
-                id: bookmarkRow
+              delegate: PlaceRow {
                 required property var modelData
 
                 width: sidebarColumn.width
-                height: Style.space(30)
-                readonly property bool current: root.currentPane().path === modelData.path
-
-                Rectangle {
-                  anchors.fill: parent
-                  anchors.topMargin: 1
-                  anchors.bottomMargin: 1
-                  radius: Style.space(6)
-                  color: bookmarkRow.current ? root.selectedBg
-                                             : (bookmarkMouse.containsMouse ? root.hoverBg : "transparent")
-                }
-
-                Image {
-                  x: Style.space(8)
-                  anchors.verticalCenter: parent.verticalCenter
-                  width: Style.space(16)
-                  height: Style.space(16)
-                  source: Quickshell.iconPath(bookmarkRow.modelData.icon, true)
-                  fillMode: Image.PreserveAspectFit
-                }
-
-                Text {
-                  anchors.left: parent.left
-                  anchors.leftMargin: Style.space(32)
-                  anchors.right: parent.right
-                  anchors.rightMargin: Style.space(26)
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: bookmarkRow.modelData.label
-                  textFormat: Text.PlainText
-                  elide: Text.ElideRight
-                  color: bookmarkRow.current ? root.accent : root.ink
-                  font.family: "sans-serif"
-                  font.pixelSize: root.fBody
-                }
-
-                MouseArea {
-                  id: bookmarkMouse
-                  anchors.fill: parent
-                  hoverEnabled: true
-                  cursorShape: Qt.PointingHandCursor
-                  onClicked: root.choosePath(bookmarkRow.modelData.path)
-                }
-
-                Text {
-                  id: bookmarkRemove
-                  anchors.right: parent.right
-                  anchors.rightMargin: Style.space(8)
-                  anchors.verticalCenter: parent.verticalCenter
-                  visible: bookmarkMouse.containsMouse || bookmarkRow.current
-                  text: "✕"
-                  color: Util.alpha(root.ink, 0.55)
-                  font.family: "sans-serif"
-                  font.pixelSize: root.fCaption
-
-                  MouseArea {
-                    anchors.fill: parent
-                    anchors.margins: -Style.space(5)
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.removeBookmark(bookmarkRow.modelData.path)
-                  }
-                }
+                fontScale: root.fontScale
+                label: modelData.label
+                icon: modelData.icon
+                current: root.currentPane().path === modelData.path
+                removable: true
+                onClicked: root.choosePath(modelData.path)
+                onRemoveClicked: root.removeBookmark(modelData.path)
               }
             }
 
@@ -1599,55 +1517,18 @@ Item {
             Repeater {
               model: backend.mounts
 
-              delegate: Item {
-                id: mountRow
+              delegate: PlaceRow {
                 required property var modelData
 
                 width: sidebarColumn.width
-                height: Style.space(30)
-                readonly property bool current: root.currentPane().path === modelData.path
-
-                Rectangle {
-                  anchors.fill: parent
-                  anchors.topMargin: 1
-                  anchors.bottomMargin: 1
-                  radius: Style.space(6)
-                  color: mountRow.current ? root.selectedBg
-                                          : (mountMouse.containsMouse ? root.hoverBg : "transparent")
-                }
-
-                Image {
-                  x: Style.space(8)
-                  anchors.verticalCenter: parent.verticalCenter
-                  width: Style.space(16)
-                  height: Style.space(16)
-                  source: Quickshell.iconPath(mountRow.modelData.icon, true)
-                  fillMode: Image.PreserveAspectFit
-                }
-
-                Text {
-                  anchors.left: parent.left
-                  anchors.leftMargin: Style.space(32)
-                  anchors.right: parent.right
-                  anchors.rightMargin: Style.space(8)
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: mountRow.modelData.label
-                  textFormat: Text.PlainText
-                  elide: Text.ElideRight
-                  color: mountRow.current ? root.accent : root.ink
-                  font.family: "sans-serif"
-                  font.pixelSize: root.fBody
-                }
-
-                MouseArea {
-                  id: mountMouse
-                  anchors.fill: parent
-                  hoverEnabled: true
-                  cursorShape: Qt.PointingHandCursor
-                  onClicked: root.choosePath(mountRow.modelData.path)
-                }
+                fontScale: root.fontScale
+                label: modelData.label
+                icon: modelData.icon
+                current: root.currentPane().path === modelData.path
+                onClicked: root.choosePath(modelData.path)
               }
             }
+
           }
         }
       }

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "popkenr.files",
   "name": "Files",
-  "version": "1.2.6",
+  "version": "1.2.7",
   "author": "popkenr",
   "license": "MIT",
   "description": "A Nautilus-style file manager for the Omarchy shell: places sidebar, breadcrumbs, icon and list views, search, trash, file operations, and the two-pane keyboard flow of Norton Commander.",
