@@ -95,7 +95,8 @@ Two-pane keys, from OMARCHOMANDER:
 | `Ctrl+U` | Swap the two panes |
 
 In a split view each pane shows its own path strip; the active one is
-highlighted. The other pane can be driven with the mouse or with Tab first.
+highlighted. Only the active pane shows the cursor/selection. The other pane
+can be driven with the mouse or with Tab first.
 
 ## What it does
 

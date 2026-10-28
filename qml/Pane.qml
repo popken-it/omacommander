@@ -574,7 +574,7 @@ Item {
         required property int index
         required property var modelData
 
-        readonly property bool isSelected: root.isSelected(gridCell.modelData.path)
+        readonly property bool isSelected: root.active && root.isSelected(gridCell.modelData.path)
         readonly property bool isCut: root.isCut(gridCell.modelData.path)
 
         width: grid.cellWidth
@@ -758,7 +758,7 @@ Item {
           required property int index
           required property var modelData
 
-          readonly property bool isSelected: root.isSelected(listRow.modelData.path)
+          readonly property bool isSelected: root.active && root.isSelected(listRow.modelData.path)
           readonly property bool isCut: root.isCut(listRow.modelData.path)
 
           width: listView.width
