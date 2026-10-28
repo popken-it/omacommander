@@ -161,6 +161,8 @@ Item {
     pruneSelection()
     if (searchMode) rebuild()
     updateStats()
+    if (!searchMode && items.length > 0 && selectedCount === 0)
+      selectOnly(Math.max(0, Math.min(items.length - 1, cursor)))
     Qt.callLater(ensureVisible)
   }
 
@@ -394,6 +396,7 @@ Item {
     selected = ({})
     anchor = -1
     rebuild()
+    if (items.length > 0) selectOnly(0)
     updateStats()
     Qt.callLater(ensureVisible)
   }
@@ -404,6 +407,7 @@ Item {
     searchQuery = ""
     searchEntries = []
     rebuild()
+    if (items.length > 0 && selectedCount === 0) selectOnly(Math.min(cursor, items.length - 1))
     updateStats()
   }
 
