@@ -6,7 +6,6 @@ import Quickshell
 import Quickshell.Wayland
 import qs.Commons
 import qs.Commons as Commons
-import qs.Ui
 import "Format.js" as Format
 
 Item {
@@ -1166,10 +1165,20 @@ Item {
 
   // ------------------------------------------------------------------ window
 
-  OverlayWindow {
+  // Own fullscreen layer shell window instead of qs.Ui.OverlayWindow: that
+  // type only exists in shell 4.5, and Omarchy stable 4.0.6 has no replacement.
+  PanelWindow {
     id: window
-    shown: root.opened
+    visible: root.opened
+    anchors.top: true
+    anchors.bottom: true
+    anchors.left: true
+    anchors.right: true
+    color: "transparent"
+    exclusionMode: ExclusionMode.Ignore
     WlrLayershell.namespace: "popkenr-omancommander"
+    WlrLayershell.layer: WlrLayer.Overlay
+    WlrLayershell.keyboardFocus: root.opened ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
     Rectangle {
       anchors.fill: parent

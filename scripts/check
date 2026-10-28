@@ -28,7 +28,15 @@ if [ -n "${OMARCHY_PATH:-}" ] && command -v qmllint >/dev/null 2>&1; then
 elif [ -n "${QML_STUB_PATH:-}" ] && command -v qmllint >/dev/null 2>&1; then
   qmllint -I "$QML_STUB_PATH" qml/*.qml
   if command -v qmltestrunner >/dev/null 2>&1; then
-    qmltestrunner -input tests/ui/tst_pane.qml -import "$QML_STUB_PATH"
+    # The stubs have no layer-shell attached properties, so drop those lines
+    # in a throwaway copy. A real Omarchy host checks them via OMARCHY_PATH.
+    work="$(mktemp -d)"
+    trap 'rm -rf "$work"' EXIT
+    cp -r qml "$work/qml"
+    mkdir -p "$work/tests"
+    cp -r tests/ui "$work/tests/ui"
+    sed -E -i -e '/WlrLayershell\./d' -e '/^    anchors\.(top|bottom|left|right): true$/d' "$work/qml/Files.qml"
+    qmltestrunner -input "$work/tests/ui" -import "$QML_STUB_PATH"
   fi
 else
   echo "QML checks skipped: run on Omarchy or set QML_STUB_PATH to a Qt import path"

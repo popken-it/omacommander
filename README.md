@@ -16,7 +16,10 @@ active Omarchy theme and needs no extra packages.
 
 ## Dependencies and permissions
 
-- Omarchy Quattro / Quickshell and Python 3 (standard library only).
+- Omarchy Quattro 4.0.6 (stable) or newer, including 4.5.0-rc. The overlay
+  draws its own layer-shell window, so it does not depend on shell helpers
+  that only exist in 4.5.
+- Python 3 (standard library only).
 - GIO (`gio open`) for opening files in the desktop default application.
 - The IBM VGA font is bundled; no font package is required.
 - The plugin runs inside the long-lived Omarchy shell with your user
@@ -27,7 +30,7 @@ active Omarchy theme and needs no extra packages.
 
 ## Install
 
-On an Omarchy Quattro machine:
+On Omarchy 4.0.6 or newer:
 
 ```bash
 cp -r omancommander ~/.config/omarchy/plugins/popkenr.omancommander

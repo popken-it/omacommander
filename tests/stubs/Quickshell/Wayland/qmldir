@@ -1,2 +1,2 @@
 module Quickshell.Wayland
-WlrLayershell 1.0 WlrLayershell.qml
+PanelWindow 1.0 PanelWindow.qml

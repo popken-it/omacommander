@@ -46,6 +46,13 @@ TestCase {
     compare(files.activePane, 0)
   }
 
+  function test_open_and_close_toggle_the_window() {
+    files.open("{}")
+    verify(files.opened)
+    files.close()
+    verify(!files.opened)
+  }
+
   function test_boomer_only_with_retro() {
     files.retro = true
     files.ultraRetro = true
