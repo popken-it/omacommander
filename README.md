@@ -124,10 +124,11 @@ Kept out to keep this one process, no extra dependencies, and no risky magic:
 
 - No drag and drop, tabs, multiple windows, Recent/Starred, network or GVfs
   mounts, "Open With", compression, batch rename, permission editing, or undo.
-- Trash support is the home trash only. Trashing to a separate mounted volume
-  would need `.Trash-$uid` on that volume.
+- Trash support is the home trash only. Trashing across filesystems is refused
+  with a clear message; per-volume `.Trash-$uid` support is not implemented.
 - Search is a bounded filesystem walk, not Tracker. Very large trees stop at
-  400 results or 20 seconds.
+  400 results or 20 seconds. Folders with more than 10,000 visible entries show
+  the first 10,000 and say that more are hidden.
 - The lister shows text, a hex dump for binaries, and images. PDF, video,
   archives and office documents still go to `xdg-open`.
 - Open folders last for the shell session; saved Places persist across restarts.
@@ -135,9 +136,9 @@ Kept out to keep this one process, no extra dependencies, and no risky magic:
 ## Backend and tests
 
 `backend/filesd.py` speaks one JSON object per line on stdin/stdout. Read-only
-commands are answered on the main loop; one mutating operation at a time runs
-on a worker thread, so the window keeps painting, can show progress, and can
-cancel. Standard library only:
+commands run on short-lived threads; search is cancellable and does not block
+listings. One mutating operation at a time runs on a worker thread, so the
+window keeps painting, can show progress, and can cancel. Standard library only:
 
 ```bash
 python3 -m unittest discover -s tests

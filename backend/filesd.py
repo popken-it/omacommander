@@ -28,6 +28,7 @@ TRASH_PATH = ":trash:"
 COPY_CHUNK = 1024 * 1024
 SEARCH_LIMIT = 400
 SEARCH_SECONDS = 20
+LIST_LIMIT = 10000
 READ_TEXT_LIMIT = 256 * 1024
 READ_HEX_LIMIT = 8 * 1024
 MUTATING = {"copy", "move", "trash", "delete", "restore", "emptyTrash", "mkdir", "rename"}
@@ -121,6 +122,10 @@ def display_path(path, home=None):
     if path.startswith(home.rstrip("/") + "/"):
         return "~/" + path[len(home.rstrip("/")) + 1:]
     return path
+
+
+def is_within(path, parent):
+    return path == parent or path.startswith(parent.rstrip(os.sep) + os.sep)
 
 
 def valid_name(name):
@@ -240,7 +245,7 @@ class Trash:
             candidate = "%s.%d" % (name, index)
         return candidate
 
-    def put(self, path, progress=None):
+    def put(self, path):
         path = normalize(path)
         if path == "/" or path == os.path.abspath(home_dir()):
             raise ValueError("refusing to trash %s" % path)
@@ -260,11 +265,11 @@ class Trash:
         with open(info_path, "w", encoding="utf-8") as handle:
             handle.write("[Trash Info]\nPath=%s\nDeletionDate=%s\n" % (quoted, stamp))
         try:
-            if os.stat(os.path.dirname(path)).st_dev == os.stat(self.files).st_dev:
-                os.rename(path, target)
-            else:
-                copy_item(path, target, None, progress)
-                remove_item(path)
+            if os.stat(os.path.dirname(path)).st_dev != os.stat(self.files).st_dev:
+                raise ValueError(
+                    "Cannot move to Trash across filesystems. Delete permanently, "
+                    "or move it into your home filesystem first.")
+            os.rename(path, target)
         except Exception:
             try:
                 os.remove(info_path)
@@ -273,7 +278,7 @@ class Trash:
             raise
         return target
 
-    def list(self):
+    def list(self, limit=None):
         self.ensure()
         entries = []
         try:
@@ -281,6 +286,8 @@ class Trash:
         except OSError:
             return entries
         for info_name in names:
+            if limit is not None and len(entries) >= limit:
+                break
             if not info_name.endswith(".trashinfo"):
                 continue
             name = info_name[: -len(".trashinfo")]
@@ -518,9 +525,11 @@ class _NullJob:
 def copy_into(src, dest_dir, job, overwrite_never=False):
     name = os.path.basename(src.rstrip("/")) or "item"
     target = os.path.join(dest_dir, name)
-    if os.path.abspath(src) == os.path.abspath(target):
+    src_real = os.path.realpath(src)
+    target_real = os.path.realpath(target)
+    if src_real == target_real:
         raise ValueError("source and target are the same")
-    if os.path.isdir(src) and not os.path.islink(src) and target.startswith(os.path.abspath(src) + os.sep):
+    if os.path.isdir(src) and not os.path.islink(src) and is_within(target_real, src_real):
         raise ValueError("cannot copy a folder into itself")
     if os.path.lexists(target):
         if overwrite_never:
@@ -552,6 +561,8 @@ class Server:
         self.closing = False
         self.conflict_event = threading.Event()
         self.conflict_choice = ""
+        self.search_lock = threading.Lock()
+        self.search_cancel = None
 
     # io ---------------------------------------------------------------
 
@@ -587,6 +598,9 @@ class Server:
             return
         if op == "cancel":
             self.cancel_requested = True
+            with self.search_lock:
+                if self.search_cancel is not None:
+                    self.search_cancel.set()
             return
         if op == "quit":
             self.closing = True
@@ -594,16 +608,17 @@ class Server:
 
         try:
             if op == "places":
-                self.emit(self.places_event(job_id))
+                self.run_read(job_id, lambda: self.places_event(job_id))
             elif op == "list":
-                self.emit(self.list_event(job_id, command.get("path"), bool(command.get("hidden"))))
+                self.run_read(job_id, lambda: self.list_event(job_id, command.get("path"),
+                                                              bool(command.get("hidden"))))
             elif op == "search":
-                self.emit(self.search_event(job_id, command.get("path"), command.get("query", ""),
-                                            bool(command.get("hidden"))))
+                self.start_search(job_id, command.get("path"), command.get("query", ""),
+                                  bool(command.get("hidden")))
             elif op == "props":
-                self.emit(self.props_event(job_id, command.get("path")))
+                self.run_read(job_id, lambda: self.props_event(job_id, command.get("path")))
             elif op == "read":
-                self.emit(self.file_event(job_id, command.get("path")))
+                self.run_read(job_id, lambda: self.file_event(job_id, command.get("path")))
             elif op == "bookmarkAdd":
                 self.emit(self.bookmark_add(job_id, command.get("path")))
             elif op == "bookmarkRemove":
@@ -619,6 +634,32 @@ class Server:
             self.emit({"event": "error", "id": job_id, "message": str(exc)})
 
     # read-only --------------------------------------------------------
+
+    def run_read(self, job_id, work):
+        """Read-only filesystem work never blocks the stdin loop."""
+        def target():
+            try:
+                event = work()
+            except Exception as exc:
+                event = {"event": "error", "id": job_id, "message": str(exc)}
+            if not self.closing:
+                self.emit(event)
+        threading.Thread(target=target, daemon=True).start()
+
+    def start_search(self, job_id, path, query, hidden):
+        cancel = threading.Event()
+        with self.search_lock:
+            if self.search_cancel is not None:
+                self.search_cancel.set()
+            self.search_cancel = cancel
+        def target():
+            event = self.search_event(job_id, path, query, hidden, cancel)
+            with self.search_lock:
+                if self.search_cancel is cancel:
+                    self.search_cancel = None
+            if event is not None and not cancel.is_set() and not self.closing:
+                self.emit(event)
+        threading.Thread(target=target, daemon=True).start()
 
     def places_event(self, job_id):
         home = home_dir()
@@ -677,16 +718,21 @@ class Server:
 
     def list_event(self, job_id, path, hidden):
         if path == TRASH_PATH:
+            entries = Trash().list(LIST_LIMIT + 1)
+            truncated = len(entries) > LIST_LIMIT
             return {
                 "event": "listing", "id": job_id, "path": TRASH_PATH, "displayPath": "Trash",
-                "parent": home_dir(), "entries": Trash().list(), "free": 0, "trash": True,
-                "error": None, "writable": True,
+                "parent": home_dir(), "entries": entries[:LIST_LIMIT], "free": 0, "trash": True,
+                "error": None, "writable": True, "truncated": truncated,
             }
         try:
             full = normalize(path)
             if not os.path.isdir(full):
                 raise NotADirectoryError(path)
             names = os.listdir(full)
+            truncated = len(names) > LIST_LIMIT
+            if truncated:
+                names = sorted(names, key=natural_key)[:LIST_LIMIT]
             entries = []
             for name in names:
                 if not hidden and name.startswith("."):
@@ -707,15 +753,16 @@ class Server:
                 "displayPath": display_path(full), "parent": parent,
                 "entries": entries, "free": free, "trash": False,
                 "error": None, "writable": os.access(full, os.W_OK),
+                "truncated": truncated,
             }
         except Exception as exc:
             return {
                 "event": "listing", "id": job_id, "path": path, "displayPath": str(path),
                 "parent": home_dir(), "entries": [], "free": 0, "trash": False,
-                "error": friendly_error(exc), "writable": False,
+                "error": friendly_error(exc), "writable": False, "truncated": False,
             }
 
-    def search_event(self, job_id, path, query, hidden):
+    def search_event(self, job_id, path, query, hidden, cancel=None):
         query = str(query or "").strip()
         result = {
             "event": "search", "id": job_id, "path": path, "query": query,
@@ -731,10 +778,17 @@ class Server:
             started = time.monotonic()
             entries = []
             for current, dirs, files in os.walk(root, followlinks=False):
+                if cancel is not None and cancel.is_set():
+                    return None
                 if not hidden:
                     dirs[:] = [d for d in dirs if not d.startswith(".")]
                 dirs.sort(key=natural_key)
-                for name in sorted(files + dirs, key=natural_key):
+                for index, name in enumerate(sorted(files + dirs, key=natural_key)):
+                    if index % 256 == 0 and (cancel is not None and cancel.is_set()):
+                        return None
+                    if index % 256 == 0 and time.monotonic() - started > SEARCH_SECONDS:
+                        result["truncated"] = True
+                        break
                     if not hidden and name.startswith("."):
                         continue
                     if needle not in name.casefold():
@@ -962,14 +1016,18 @@ class Server:
 def move_into(source, dest_dir, job):
     name = os.path.basename(source.rstrip("/")) or "item"
     target = os.path.join(dest_dir, name)
-    if os.path.abspath(source) == os.path.abspath(target):
+    source_real = os.path.realpath(source)
+    target_real = os.path.realpath(target)
+    if source_real == target_real:
         raise ValueError("source and target are the same")
-    if os.path.isdir(source) and not os.path.islink(source) and target.startswith(os.path.abspath(source) + os.sep):
+    if os.path.isdir(source) and not os.path.islink(source) and is_within(target_real, source_real):
         raise ValueError("cannot move a folder into itself")
 
     if os.path.lexists(target):
-        # Merge folders, prompt for everything else.
-        if os.path.isdir(source) and os.path.isdir(target) and not os.path.islink(target):
+        # Merge folders, prompt for everything else. A symlink is never a
+        # folder to merge: merging would move the symlink target's contents.
+        if (os.path.isdir(source) and not os.path.islink(source)
+                and os.path.isdir(target) and not os.path.islink(target)):
             for name in sorted(os.listdir(source), key=natural_key):
                 move_into(os.path.join(source, name), target, job)
             try:
@@ -1108,6 +1166,9 @@ def main():
     finally:
         server.closing = True
         server.conflict_event.set()
+        with server.search_lock:
+            if server.search_cancel is not None:
+                server.search_cancel.set()
 
 
 if __name__ == "__main__":

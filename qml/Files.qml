@@ -811,6 +811,7 @@ Item {
     var pane = currentPane()
     if (pane.searchMode) return pane.items.length + " results"
     var label = pane.items.length + (pane.items.length === 1 ? " item" : " items")
+    if (pane.truncated) label += "  ·  more items not shown"
     if (pane.selectedCount > 0)
       label += "  ·  " + pane.selectedCount + " selected" +
                (pane.selectedBytes > 0 ? " (" + Format.bytes(pane.selectedBytes) + ")" : "")

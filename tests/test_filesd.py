@@ -235,6 +235,64 @@ class FilesdTest(unittest.TestCase):
         self.assertTrue(link["dir"])
         self.assertEqual(link["target"], os.path.join(self.home, "Documents"))
 
+    def test_listing_caps_huge_directories(self):
+        folder = os.path.join(self.home, "huge")
+        os.makedirs(folder)
+        for index in range(10001):
+            open(os.path.join(folder, "f%05d" % index), "a").close()
+        event = self.listing(folder)
+        self.assertEqual(len(event["entries"]), 10000)
+        self.assertTrue(event["truncated"])
+
+    def test_move_symlink_dir_does_not_merge_target(self):
+        real = self.make("real", dir=True)
+        self.make("real/keep.txt", "keep")
+        link = os.path.join(self.home, "link")
+        os.symlink(real, link)
+        dest = self.make("dest", dir=True)
+        os.makedirs(os.path.join(dest, "link"))
+        self.make("dest/link/existing.txt", "old")
+
+        ident = self.next_id()
+        conflict = self.client.run_job(op="move", id=ident, sources=[link], dest=dest)
+        self.assertEqual(conflict["event"], "conflict")
+        self.client.resolve("skip")
+        done = self.client.wait("job", ident)
+        self.assertTrue(done["ok"], done)
+        self.assertTrue(os.path.islink(link))
+        self.assertTrue(os.path.isfile(os.path.join(real, "keep.txt")))
+        self.assertFalse(os.path.exists(os.path.join(dest, "link", "keep.txt")))
+        self.assertTrue(os.path.isfile(os.path.join(dest, "link", "existing.txt")))
+
+    def test_copy_refuses_symlinked_destination_inside_source(self):
+        source = self.make("src/sub", dir=True)
+        self.make("src/file.txt", "x")
+        out = os.path.join(self.home, "out")
+        os.symlink(source, out)
+
+        ident = self.next_id()
+        self.client.send(op="copy", id=ident, sources=[os.path.join(self.home, "src")], dest=out)
+        done = self.client.wait("job", ident)
+        self.assertFalse(done["ok"])
+        self.assertFalse(os.path.exists(os.path.join(source, "src")))
+
+    def test_trash_refuses_cross_filesystem(self):
+        shm = "/dev/shm"
+        if not os.path.isdir(shm) or os.stat(shm).st_dev == os.stat(self.data).st_dev:
+            self.skipTest("no second filesystem available")
+        folder = tempfile.mkdtemp(prefix="filesd-shm-", dir=shm)
+        self.addCleanup(shutil.rmtree, folder, True)
+        source = os.path.join(folder, "big.txt")
+        with open(source, "w", encoding="utf-8") as handle:
+            handle.write("data")
+
+        ident = self.next_id()
+        self.client.send(op="trash", id=ident, paths=[source])
+        done = self.client.wait("job", ident)
+        self.assertFalse(done["ok"])
+        self.assertTrue(os.path.exists(source))
+        self.assertEqual(self.listing(TRASH)["entries"], [])
+
     def test_mkdir_and_rename(self):
         ident = self.next_id()
         self.client.send(op="mkdir", id=ident, path=self.home, name="New Folder")

@@ -44,6 +44,7 @@ Item {
   property real selectedBytes: 0
   property int reqId: 0
   property bool loading: false
+  property bool truncated: false
   property string error: ""
   property bool trash: false
   property bool writable: true
@@ -115,6 +116,7 @@ Item {
     selectedCount = 0
     selectedBytes = 0
     error = ""
+    truncated = false
     loading = true
     trash = next === trashPath
     searchMode = false
@@ -136,6 +138,7 @@ Item {
     revealPath = ""
     if (data.error) {
       error = String(data.error)
+      truncated = false
       entries = []
       items = []
       updateStats()
@@ -149,6 +152,7 @@ Item {
     freeBytes = Number(data.free || 0)
     trash = data.trash === true
     writable = data.writable !== false
+    truncated = data.truncated === true
     error = ""
     rebuild()
     if (reveal !== "") {
