@@ -8,6 +8,7 @@ Rectangle {
   property string label: ""
   property bool primary: false
   property bool danger: false
+  property real fontScale: 1.0
 
   signal clicked()
 
@@ -28,7 +29,7 @@ Rectangle {
     color: root.primary ? Commons.Color.background
                         : (root.danger ? Commons.Color.urgent : Commons.Color.popups.text)
     font.family: "sans-serif"
-    font.pixelSize: Style.font.body
+    font.pixelSize: Math.max(1, Math.round(Style.font.body * root.fontScale))
   }
 
   MouseArea {

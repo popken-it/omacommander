@@ -106,6 +106,8 @@ highlighted. The other pane can be driven with the mouse or with Tab first.
 - Nautilus layout: header bar, breadcrumbs that scroll to the deepest segment,
   icon grid with image thumbnails, list view with sortable columns, status bar
   with item/selection size and free space.
+- Starts in dual-pane mode. The `A−` / `A+` buttons at the top right scale the
+  interface text from 80% to 160%.
 - Search below the current folder, case-insensitive, capped at 400 results.
 - Freedesktop home trash: move, list with original location, restore, empty.
   Items land in `$XDG_DATA_HOME/Trash`, so other file managers can restore them.

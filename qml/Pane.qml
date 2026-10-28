@@ -20,9 +20,14 @@ Item {
   property string homePath: "/"
   property var cutPaths: []
 
+  property real fontScale: 1.0
+  readonly property int fCaption: Math.max(1, Math.round(Style.font.caption * fontScale))
+  readonly property int fBody: Math.max(1, Math.round(Style.font.body * fontScale))
+  readonly property int fTitle: Math.max(1, Math.round(Style.font.title * fontScale))
+
   readonly property string trashPath: ":trash:"
-  readonly property int rowHeight: Math.max(Style.space(30), Style.font.body + Style.space(16))
-  readonly property int stripHeight: splitMode ? Style.space(26) : 0
+  readonly property int rowHeight: Math.max(Style.space(30), fBody + Style.space(16))
+  readonly property int stripHeight: splitMode ? Math.max(Style.space(26), fCaption + Style.space(10)) : 0
   readonly property int sizeWidth: Style.space(88)
   readonly property int dateWidth: Style.space(124)
   readonly property int nameWidth: Math.max(Style.space(60), body.width - Style.space(38) - sizeWidth - dateWidth - Style.space(24))
@@ -506,7 +511,7 @@ Item {
       elide: Text.ElideMiddle
       color: root.active ? root.accent : Util.alpha(root.ink, 0.75)
       font.family: "sans-serif"
-      font.pixelSize: Style.font.caption
+      font.pixelSize: root.fCaption
     }
 
     MouseArea {
@@ -529,7 +534,7 @@ Item {
       visible: root.viewMode === "grid"
       model: root.items
       cellWidth: root.columns > 0 ? width / root.columns : width
-      cellHeight: Style.space(112)
+      cellHeight: Math.max(Style.space(112), Style.space(76) + 3 * root.fBody)
       clip: true
       boundsBehavior: Flickable.StopAtBounds
       onWidthChanged: root.updateColumns()
@@ -596,7 +601,7 @@ Item {
             textFormat: Text.PlainText
             color: root.ink
             font.family: "sans-serif"
-            font.pixelSize: Style.font.body
+            font.pixelSize: root.fBody
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.Wrap
             maximumLineCount: 2
@@ -611,7 +616,7 @@ Item {
             textFormat: Text.PlainText
             color: Util.alpha(root.ink, 0.55)
             font.family: "sans-serif"
-            font.pixelSize: Style.font.caption
+            font.pixelSize: root.fCaption
             horizontalAlignment: Text.AlignHCenter
             elide: Text.ElideMiddle
           }
@@ -666,7 +671,7 @@ Item {
           text: "Name"
           color: Util.alpha(root.ink, 0.7)
           font.family: "sans-serif"
-          font.pixelSize: Style.font.caption
+          font.pixelSize: root.fCaption
           elide: Text.ElideRight
 
           MouseArea {
@@ -682,7 +687,7 @@ Item {
           text: (root.sortMode === "size" ? (root.sortAsc ? "Size ↑" : "Size ↓") : "Size")
           color: Util.alpha(root.ink, 0.7)
           font.family: "sans-serif"
-          font.pixelSize: Style.font.caption
+          font.pixelSize: root.fCaption
           horizontalAlignment: Text.AlignRight
 
           MouseArea {
@@ -698,7 +703,7 @@ Item {
           text: (root.sortMode === "modified" ? (root.sortAsc ? "Modified ↑" : "Modified ↓") : "Modified")
           color: Util.alpha(root.ink, 0.7)
           font.family: "sans-serif"
-          font.pixelSize: Style.font.caption
+          font.pixelSize: root.fCaption
           horizontalAlignment: Text.AlignRight
 
           MouseArea {
@@ -759,7 +764,7 @@ Item {
             textFormat: Text.PlainText
             color: root.ink
             font.family: "sans-serif"
-            font.pixelSize: Style.font.body
+            font.pixelSize: root.fBody
             elide: Text.ElideMiddle
           }
 
@@ -770,7 +775,7 @@ Item {
             text: root.sizeLabel(listRow.modelData)
             color: Util.alpha(root.ink, 0.65)
             font.family: "sans-serif"
-            font.pixelSize: Style.font.caption
+            font.pixelSize: root.fCaption
             horizontalAlignment: Text.AlignRight
             elide: Text.ElideRight
           }
@@ -782,7 +787,7 @@ Item {
             text: root.dateLabel(listRow.modelData)
             color: Util.alpha(root.ink, 0.65)
             font.family: "sans-serif"
-            font.pixelSize: Style.font.caption
+            font.pixelSize: root.fCaption
             horizontalAlignment: Text.AlignRight
             elide: Text.ElideRight
           }
@@ -821,7 +826,7 @@ Item {
       textFormat: Text.PlainText
       color: Util.alpha(root.ink, 0.55)
       font.family: "sans-serif"
-      font.pixelSize: Style.font.title
+      font.pixelSize: root.fTitle
       horizontalAlignment: Text.AlignHCenter
       wrapMode: Text.Wrap
     }
@@ -834,7 +839,7 @@ Item {
       textFormat: Text.PlainText
       color: Commons.Color.urgent
       font.family: "sans-serif"
-      font.pixelSize: Style.font.body
+      font.pixelSize: root.fBody
       horizontalAlignment: Text.AlignHCenter
       wrapMode: Text.Wrap
     }
@@ -848,7 +853,7 @@ Item {
       textFormat: Text.PlainText
       color: Util.alpha(root.ink, 0.55)
       font.family: "sans-serif"
-      font.pixelSize: Style.font.caption
+      font.pixelSize: root.fCaption
     }
   }
 }

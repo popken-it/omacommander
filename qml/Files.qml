@@ -30,9 +30,16 @@ Item {
   readonly property color chromeBg: Util.alpha(Commons.Color.popups.text, 0.035)
   readonly property color sidebarBg: Util.alpha(Commons.Color.popups.text, 0.02)
   readonly property color selectedBg: Util.alpha(Commons.Color.accent, 0.18)
-  readonly property int headerHeight: Math.max(Style.space(46), Style.font.title + Style.space(30))
-  readonly property int statusHeight: Style.space(26)
-  readonly property int fkeyHeight: Style.space(34)
+  property real fontScale: 1.0
+  readonly property int fCaption: Math.max(1, Math.round(Style.font.caption * fontScale))
+  readonly property int fBodySmall: Math.max(1, Math.round(Style.font.bodySmall * fontScale))
+  readonly property int fBody: Math.max(1, Math.round(Style.font.body * fontScale))
+  readonly property int fTitle: Math.max(1, Math.round(Style.font.title * fontScale))
+  readonly property int fHeading: Math.max(1, Math.round(Style.font.heading * fontScale))
+
+  readonly property int headerHeight: Math.max(Style.space(46), fTitle + Style.space(30))
+  readonly property int statusHeight: Math.max(Style.space(26), fCaption + Style.space(12))
+  readonly property int fkeyHeight: Math.max(Style.space(34), 2 * fCaption + Style.space(14))
   readonly property int sidebarWidth: Style.space(188)
   readonly property int paneGap: 1
 
@@ -58,7 +65,7 @@ Item {
   property int viewerReq: 0
 
   property int activePane: 0
-  property bool split: false
+  property bool split: true
   property bool sidebarVisible: true
   property string viewMode: "grid"
   property string sortMode: "name"
@@ -233,6 +240,11 @@ Item {
   function toggleHidden() {
     showHidden = !showHidden
     if (searchActive) runSearch()
+  }
+
+  function changeFontSize(delta) {
+    var next = Math.round((fontScale + delta) * 10) / 10
+    fontScale = Math.max(0.8, Math.min(1.6, next))
   }
 
   // ----------------------------------------------------------------- search
@@ -462,6 +474,7 @@ Item {
       { key: "Ctrl+F", text: "Search this folder and below" },
       { key: "Ctrl+H", text: "Show hidden files" },
       { key: "Ctrl+D", text: "Add this folder to Places" },
+      { key: "A− / A+", text: "Smaller or larger text (top right)" },
       { key: "Ctrl+R", text: "Reload" },
       { key: "Delete", text: "Move to Trash" },
       { key: "Shift+Delete", text: "Delete permanently" }
@@ -1159,6 +1172,14 @@ Item {
           spacing: 1
 
           IconButton {
+            glyph: "A−"
+            onClicked: root.changeFontSize(-0.1)
+          }
+          IconButton {
+            glyph: "A+"
+            onClicked: root.changeFontSize(0.1)
+          }
+          IconButton {
             glyph: "⌕"
             active: root.searchActive
             onClicked: root.searchActive ? root.finishSearch() : root.openSearch("")
@@ -1238,7 +1259,7 @@ Item {
                     textFormat: Text.PlainText
                     color: crumb.modelData.last ? root.ink : Util.alpha(root.ink, 0.68)
                     font.family: "sans-serif"
-                    font.pixelSize: Style.font.body
+                    font.pixelSize: root.fBody
                     font.weight: crumb.modelData.last ? Font.DemiBold : Font.Normal
                   }
 
@@ -1250,7 +1271,7 @@ Item {
                     text: "›"
                     color: Util.alpha(root.ink, 0.4)
                     font.family: "sans-serif"
-                    font.pixelSize: Style.font.body
+                    font.pixelSize: root.fBody
                   }
 
                   MouseArea {
@@ -1285,7 +1306,7 @@ Item {
               selectionColor: root.accent
               selectedTextColor: root.panelBg
               font.family: "sans-serif"
-              font.pixelSize: Style.font.body
+              font.pixelSize: root.fBody
               clip: true
               selectByMouse: true
               onTextChanged: root.locationText = text
@@ -1311,7 +1332,7 @@ Item {
               text: "⌕"
               color: Util.alpha(root.ink, 0.65)
               font.family: "sans-serif"
-              font.pixelSize: Style.font.body
+              font.pixelSize: root.fBody
             }
 
             TextInput {
@@ -1327,7 +1348,7 @@ Item {
               selectionColor: root.accent
               selectedTextColor: root.panelBg
               font.family: "sans-serif"
-              font.pixelSize: Style.font.body
+              font.pixelSize: root.fBody
               clip: true
               selectByMouse: true
               onTextChanged: {
@@ -1343,7 +1364,7 @@ Item {
               text: "Search files…"
               color: Util.alpha(root.ink, 0.45)
               font.family: "sans-serif"
-              font.pixelSize: Style.font.body
+              font.pixelSize: root.fBody
             }
 
             Text {
@@ -1354,7 +1375,7 @@ Item {
               text: "✕"
               color: Util.alpha(root.ink, 0.55)
               font.family: "sans-serif"
-              font.pixelSize: Style.font.caption
+              font.pixelSize: root.fCaption
 
               MouseArea {
                 anchors.fill: parent
@@ -1411,7 +1432,7 @@ Item {
               text: "Places"
               color: Util.alpha(root.ink, 0.5)
               font.family: "sans-serif"
-              font.pixelSize: Style.font.caption
+              font.pixelSize: root.fCaption
               font.weight: Font.DemiBold
             }
 
@@ -1455,7 +1476,7 @@ Item {
                   elide: Text.ElideRight
                   color: placeRow.current ? root.accent : root.ink
                   font.family: "sans-serif"
-                  font.pixelSize: Style.font.body
+                  font.pixelSize: root.fBody
                 }
 
                 MouseArea {
@@ -1477,7 +1498,7 @@ Item {
               text: "Saved"
               color: Util.alpha(root.ink, 0.5)
               font.family: "sans-serif"
-              font.pixelSize: Style.font.caption
+              font.pixelSize: root.fCaption
               font.weight: Font.DemiBold
             }
 
@@ -1521,7 +1542,7 @@ Item {
                   elide: Text.ElideRight
                   color: bookmarkRow.current ? root.accent : root.ink
                   font.family: "sans-serif"
-                  font.pixelSize: Style.font.body
+                  font.pixelSize: root.fBody
                 }
 
                 MouseArea {
@@ -1541,7 +1562,7 @@ Item {
                   text: "✕"
                   color: Util.alpha(root.ink, 0.55)
                   font.family: "sans-serif"
-                  font.pixelSize: Style.font.caption
+                  font.pixelSize: root.fCaption
 
                   MouseArea {
                     anchors.fill: parent
@@ -1562,7 +1583,7 @@ Item {
               text: "Devices"
               color: Util.alpha(root.ink, 0.5)
               font.family: "sans-serif"
-              font.pixelSize: Style.font.caption
+              font.pixelSize: root.fCaption
               font.weight: Font.DemiBold
             }
 
@@ -1606,7 +1627,7 @@ Item {
                   elide: Text.ElideRight
                   color: mountRow.current ? root.accent : root.ink
                   font.family: "sans-serif"
-                  font.pixelSize: Style.font.body
+                  font.pixelSize: root.fBody
                 }
 
                 MouseArea {
@@ -1639,6 +1660,7 @@ Item {
           width: root.split ? Math.floor(content.width / 2) : content.width
           height: content.height
           service: backend
+          fontScale: root.fontScale
           active: root.activePane === 0
           splitMode: root.split
           viewMode: root.viewMode
@@ -1673,6 +1695,7 @@ Item {
           width: Math.max(0, content.width - paneA.width - root.paneGap)
           height: content.height
           service: backend
+          fontScale: root.fontScale
           active: root.activePane === 1
           splitMode: root.split
           viewMode: root.viewMode
@@ -1745,7 +1768,7 @@ Item {
                   textFormat: Text.PlainText
                   color: root.accent
                   font.family: "sans-serif"
-                  font.pixelSize: Style.font.caption
+                  font.pixelSize: root.fCaption
                   font.weight: Font.DemiBold
                   horizontalAlignment: Text.AlignHCenter
                 }
@@ -1756,7 +1779,7 @@ Item {
                   textFormat: Text.PlainText
                   color: Util.alpha(root.ink, 0.8)
                   font.family: "sans-serif"
-                  font.pixelSize: Style.font.caption
+                  font.pixelSize: root.fCaption
                   horizontalAlignment: Text.AlignHCenter
                   elide: Text.ElideRight
                 }
@@ -1802,7 +1825,7 @@ Item {
           elide: Text.ElideRight
           color: Util.alpha(root.ink, 0.7)
           font.family: "sans-serif"
-          font.pixelSize: Style.font.caption
+          font.pixelSize: root.fCaption
         }
 
         Text {
@@ -1814,7 +1837,7 @@ Item {
           text: "Cancel"
           color: root.danger
           font.family: "sans-serif"
-          font.pixelSize: Style.font.caption
+          font.pixelSize: root.fCaption
 
           MouseArea {
             anchors.fill: parent
@@ -1835,7 +1858,7 @@ Item {
           horizontalAlignment: Text.AlignRight
           color: Util.alpha(root.ink, 0.55)
           font.family: "sans-serif"
-          font.pixelSize: Style.font.caption
+          font.pixelSize: root.fCaption
         }
       }
 
@@ -1906,7 +1929,7 @@ Item {
                 elide: Text.ElideRight
                 color: menuRow.modelData.danger ? root.danger : root.ink
                 font.family: "sans-serif"
-                font.pixelSize: Style.font.body
+                font.pixelSize: root.fBody
               }
 
               Text {
@@ -1919,7 +1942,7 @@ Item {
                 textFormat: Text.PlainText
                 color: Util.alpha(root.ink, 0.42)
                 font.family: "sans-serif"
-                font.pixelSize: Style.font.caption
+                font.pixelSize: root.fCaption
               }
 
               MouseArea {
@@ -1972,7 +1995,7 @@ Item {
             textFormat: Text.PlainText
             color: root.ink
             font.family: "sans-serif"
-            font.pixelSize: Style.font.heading
+            font.pixelSize: root.fHeading
             font.weight: Font.DemiBold
             wrapMode: Text.Wrap
           }
@@ -1984,7 +2007,7 @@ Item {
             textFormat: Text.PlainText
             color: Util.alpha(root.ink, 0.78)
             font.family: "sans-serif"
-            font.pixelSize: Style.font.body
+            font.pixelSize: root.fBody
             wrapMode: Text.Wrap
             lineHeight: 1.15
           }
@@ -2008,7 +2031,7 @@ Item {
               selectionColor: root.accent
               selectedTextColor: root.panelBg
               font.family: "sans-serif"
-              font.pixelSize: Style.font.body
+              font.pixelSize: root.fBody
               clip: true
               selectByMouse: true
               onAccepted: root.runDialogAction("accept")
@@ -2037,7 +2060,7 @@ Item {
                   textFormat: Text.PlainText
                   color: root.accent
                   font.family: "sans-serif"
-                  font.pixelSize: Style.font.body
+                  font.pixelSize: root.fBody
                   font.weight: Font.DemiBold
                 }
 
@@ -2049,7 +2072,7 @@ Item {
                   textFormat: Text.PlainText
                   color: root.ink
                   font.family: "sans-serif"
-                  font.pixelSize: Style.font.body
+                  font.pixelSize: root.fBody
                   wrapMode: Text.Wrap
                 }
               }
@@ -2078,7 +2101,7 @@ Item {
                   textFormat: Text.PlainText
                   color: Util.alpha(root.ink, 0.55)
                   font.family: "sans-serif"
-                  font.pixelSize: Style.font.body
+                  font.pixelSize: root.fBody
                   elide: Text.ElideRight
                 }
 
@@ -2090,7 +2113,7 @@ Item {
                   textFormat: Text.PlainText
                   color: root.ink
                   font.family: "sans-serif"
-                  font.pixelSize: Style.font.body
+                  font.pixelSize: root.fBody
                   wrapMode: Text.Wrap
                 }
               }
@@ -2115,6 +2138,7 @@ Item {
                   label: modelData.label
                   primary: modelData.primary === true
                   danger: modelData.danger === true
+                  fontScale: root.fontScale
                   onClicked: root.runDialogAction(modelData.action)
                 }
               }
@@ -2177,7 +2201,7 @@ Item {
             elide: Text.ElideMiddle
             color: root.ink
             font.family: "sans-serif"
-            font.pixelSize: Style.font.body
+            font.pixelSize: root.fBody
             font.weight: Font.DemiBold
           }
 
@@ -2191,7 +2215,7 @@ Item {
             elide: Text.ElideRight
             color: Util.alpha(root.ink, 0.55)
             font.family: "sans-serif"
-            font.pixelSize: Style.font.caption
+            font.pixelSize: root.fCaption
           }
 
           IconButton {
@@ -2238,7 +2262,7 @@ Item {
               textFormat: Text.PlainText
               color: root.ink
               font.family: "monospace"
-              font.pixelSize: Style.font.bodySmall
+              font.pixelSize: root.fBodySmall
               wrapMode: root.viewerWrap ? Text.Wrap : Text.NoWrap
               lineHeight: 1.15
             }
@@ -2251,7 +2275,7 @@ Item {
             textFormat: Text.PlainText
             color: Util.alpha(root.ink, 0.5)
             font.family: "sans-serif"
-            font.pixelSize: Style.font.body
+            font.pixelSize: root.fBody
           }
         }
       }
@@ -2278,7 +2302,7 @@ Item {
           textFormat: Text.PlainText
           color: root.toastAngry ? Commons.Color.foreground : root.panelBg
           font.family: "sans-serif"
-          font.pixelSize: Style.font.body
+          font.pixelSize: root.fBody
           horizontalAlignment: Text.AlignHCenter
           elide: Text.ElideRight
         }
