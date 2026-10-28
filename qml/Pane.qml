@@ -53,6 +53,7 @@ Item {
   property bool searchMode: false
   property string searchQuery: ""
   property var searchEntries: []
+  property string revealPath: ""
   property int columns: 1
 
   property color ink: Commons.Color.popups.text
@@ -80,6 +81,16 @@ Item {
     if (path === "") navigate(startPath)
   }
 
+  function childToward(target, from) {
+    if (!target || !from || target === from) return ""
+    var root = target === "/" ? "/" : String(target).replace(/\/+$/, "") + "/"
+    if (from.indexOf(root) !== 0) return ""
+    var rest = from.slice(root.length)
+    var first = rest.split("/")[0]
+    if (!first) return ""
+    return target === "/" ? "/" + first : String(target).replace(/\/+$/, "") + "/" + first
+  }
+
   function navigate(target, push) {
     var next = String(target || "")
     if (next === "") return
@@ -87,6 +98,7 @@ Item {
       refresh()
       return
     }
+    revealPath = childToward(next, path)
     if (push !== false) {
       var nextHistory = history.slice(0, histIndex + 1)
       nextHistory.push(next)
@@ -120,6 +132,8 @@ Item {
   function receive(data) {
     if (!data || data.id !== reqId) return
     loading = false
+    var reveal = revealPath
+    revealPath = ""
     if (data.error) {
       error = String(data.error)
       entries = []
@@ -137,7 +151,10 @@ Item {
     writable = data.writable !== false
     error = ""
     rebuild()
-    if (previous) {
+    if (reveal !== "") {
+      var revealed = indexOfPath(reveal)
+      if (revealed >= 0) selectOnly(revealed)
+    } else if (previous) {
       var index = indexOfPath(previous.path)
       if (index >= 0) cursor = index
     }

@@ -68,7 +68,7 @@ Other keys:
 | Key | Action |
 |---|---|
 | `Enter` | Open the item / enter the folder |
-| `Backspace`, `Alt+Up` | Parent folder |
+| `Backspace`, `Alt+Up` | Parent folder, with the cursor on the folder you left |
 | `Alt+Left` / `Alt+Right` | Back / forward |
 | `Ctrl+L` | Type a location |
 | `Ctrl+F` or just typing | Search this folder and below |
