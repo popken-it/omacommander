@@ -16,11 +16,20 @@ Item {
   property var manifest: null
   property bool opened: false
 
-  readonly property string pluginId: manifest && manifest.id ? String(manifest.id) : "popkenr.omacommander"
+  readonly property string pluginId: manifest && manifest.id ? String(manifest.id) : "popkenr.omancommander"
   readonly property string trashPath: ":trash:"
   readonly property string home: backend.home || Quickshell.env("HOME") || "/"
 
   property bool retro: false
+  property bool ultraRetro: false
+  FontLoader {
+    id: vgaFont
+    source: Qt.resolvedUrl("../fonts/Px437_IBM_VGA_9x16.ttf")
+  }
+  readonly property bool vgaReady: vgaFont.status === FontLoader.Ready
+  readonly property string uiFont: ultraRetro && vgaReady ? vgaFont.name : "sans-serif"
+  readonly property string monoFont: ultraRetro && vgaReady ? vgaFont.name : "monospace"
+
   readonly property color panelBg: retro ? "#0000a8" : Commons.Color.popups.background
   readonly property color ink: retro ? "#c0c0c0" : Commons.Color.popups.text
   readonly property color accent: retro ? "#ffff55" : Commons.Color.accent
@@ -30,19 +39,19 @@ Item {
   readonly property color hoverBg: retro ? "#3300aaaa" : Util.alpha(Commons.Color.popups.text, 0.07)
   readonly property color chromeBg: retro ? "#000080" : Util.alpha(Commons.Color.popups.text, 0.035)
   readonly property color sidebarBg: retro ? "#000080" : Util.alpha(Commons.Color.popups.text, 0.02)
-  readonly property color selectedBg: retro ? "#005f5f" : Util.alpha(Commons.Color.accent, 0.18)
+  readonly property color selectedBg: ultraRetro ? "#00aaaa" : (retro ? "#005f5f" : Util.alpha(Commons.Color.accent, 0.18))
   readonly property real defaultFontScale: 1.2
   property real fontScale: defaultFontScale
-  readonly property int fCaption: Math.max(1, Math.round(Style.font.caption * fontScale))
-  readonly property int fBodySmall: Math.max(1, Math.round(Style.font.bodySmall * fontScale))
-  readonly property int fBody: Math.max(1, Math.round(Style.font.body * fontScale))
-  readonly property int fTitle: Math.max(1, Math.round(Style.font.title * fontScale))
-  readonly property int fHeading: Math.max(1, Math.round(Style.font.heading * fontScale))
+  readonly property int fCaption: ultraRetro ? 16 : Math.max(1, Math.round(Style.font.caption * fontScale))
+  readonly property int fBodySmall: ultraRetro ? 16 : Math.max(1, Math.round(Style.font.bodySmall * fontScale))
+  readonly property int fBody: ultraRetro ? 16 : Math.max(1, Math.round(Style.font.body * fontScale))
+  readonly property int fTitle: ultraRetro ? 16 : Math.max(1, Math.round(Style.font.title * fontScale))
+  readonly property int fHeading: ultraRetro ? 16 : Math.max(1, Math.round(Style.font.heading * fontScale))
 
-  readonly property int headerHeight: Math.max(Style.space(46), fTitle + Style.space(30))
-  readonly property int statusHeight: Math.max(Style.space(26), fCaption + Style.space(12))
-  readonly property int fkeyHeight: Math.max(Style.space(34), 2 * fCaption + Style.space(14))
-  readonly property int sidebarWidth: Style.space(188)
+  readonly property int headerHeight: ultraRetro ? Style.space(30) : Math.max(Style.space(46), fTitle + Style.space(30))
+  readonly property int statusHeight: ultraRetro ? Style.space(20) : Math.max(Style.space(26), fCaption + Style.space(12))
+  readonly property int fkeyHeight: ultraRetro ? Style.space(20) : Math.max(Style.space(34), 2 * fCaption + Style.space(14))
+  readonly property int sidebarWidth: ultraRetro ? Style.space(148) : Style.space(188)
   readonly property int paneGap: 1
 
   readonly property var fkeys: [
@@ -214,6 +223,7 @@ Item {
   }
 
   function toggleSplit() {
+    if (ultraRetro) return
     if (searchActive) finishSearch()
     split = !split
     if (!split) {
@@ -274,8 +284,21 @@ Item {
   }
 
   function changeFontSize(delta) {
+    if (ultraRetro) return
     var next = Math.round((fontScale + delta) * 10) / 10
     fontScale = Math.max(0.8, Math.min(1.6, next))
+  }
+
+  onRetroChanged: if (!retro) ultraRetro = false
+  onUltraRetroChanged: {
+    if (ultraRetro && !retro) {
+      ultraRetro = false
+      return
+    }
+    if (ultraRetro) {
+      split = true
+      viewMode = "list"
+    }
   }
 
   // ----------------------------------------------------------------- search
@@ -501,10 +524,10 @@ Item {
       { key: "F7", text: "New folder" },
       { key: "F8", text: "Move to Trash (in Trash: delete permanently)" },
       { key: "F9", text: "Open the menu" },
-      { key: "F10", text: "Close OmaCommander" },
+      { key: "F10", text: "Close OmaNCommander" },
       { key: "Shift+F6", text: "Rename (Total Commander alias)" },
       { key: "Shift+F8", text: "Delete permanently" },
-      { key: "Alt+F4", text: "Close OmaCommander" },
+      { key: "Alt+F4", text: "Close OmaNCommander" },
       { key: "Tab", text: "Switch pane (dual pane)" },
       { key: "Ctrl+Shift+D", text: "Show or hide the second pane" },
       { key: "Ctrl+L", text: "Type a location" },
@@ -515,6 +538,7 @@ Item {
       { key: "Ctrl+- / Ctrl+=", text: "Smaller or larger text" },
       { key: "Ctrl+0", text: "Reset text to 120%" },
       { key: "Ctrl+Shift+R", text: "Toggle Retro Norton Commander colours" },
+      { key: "Ctrl+Shift+U", text: "Toggle Ultra Retro 9x16 text mode (Retro only)" },
       { key: "Ctrl+R", text: "Reload" },
       { key: "Delete", text: "Move to Trash" },
       { key: "Shift+Delete", text: "Delete permanently" }
@@ -958,6 +982,7 @@ Item {
     if (ctrl && shift && key === Qt.Key_N) { openMkdir(); event.accepted = true; return }
     if (ctrl && shift && key === Qt.Key_D) { toggleSplit(); event.accepted = true; return }
     if (ctrl && shift && key === Qt.Key_R) { retro = !retro; event.accepted = true; return }
+    if (ctrl && shift && key === Qt.Key_U) { if (retro) ultraRetro = !ultraRetro; event.accepted = true; return }
     if (ctrl && key === Qt.Key_F) { openSearch(""); event.accepted = true; return }
     if (ctrl && key === Qt.Key_L) { openLocation(); event.accepted = true; return }
     if (ctrl && key === Qt.Key_H) { toggleHidden(); event.accepted = true; return }
@@ -1119,7 +1144,7 @@ Item {
     }
 
     onBackendError: function(data) {
-      root.showToast(String(data.message || "OmaCommander backend error"), true)
+      root.showToast(String(data.message || "OmaNCommander backend error"), true)
     }
 
     onBackendReady: function() {
@@ -1134,7 +1159,7 @@ Item {
       paneA.loading = false
       paneB.loading = false
       root.recovering = root.opened
-      root.showToast(String(message || "OmaCommander backend stopped"), true)
+      root.showToast(String(message || "OmaNCommander backend stopped"), true)
     }
   }
 
@@ -1143,7 +1168,7 @@ Item {
   OverlayWindow {
     id: window
     shown: root.opened
-    WlrLayershell.namespace: "popkenr-omacommander"
+    WlrLayershell.namespace: "popkenr-omancommander"
 
     Rectangle {
       anchors.fill: parent
@@ -1160,10 +1185,10 @@ Item {
       anchors.centerIn: parent
       width: Math.max(Style.space(360), Math.min(parent.width - Style.gapsOut * 4, Style.space(1460)))
       height: Math.max(Style.space(280), Math.min(parent.height - Style.gapsOut * 4, Style.space(980)))
-      radius: Math.max(Style.cornerRadius, Style.space(12))
+      radius: root.ultraRetro ? 0 : Math.max(Style.cornerRadius, Style.space(12))
       color: root.panelBg
-      border.width: 1
-      border.color: Util.alpha(root.ink, 0.22)
+      border.width: root.ultraRetro ? 2 : 1
+      border.color: root.ultraRetro ? "#00aaaa" : Util.alpha(root.ink, 0.22)
       clip: true
       focus: root.opened
 
@@ -1198,25 +1223,33 @@ Item {
 
           IconButton {
             retro: root.retro
-            glyph: "▤"
+            ultraRetro: root.ultraRetro
+            fontFamily: root.uiFont
+            glyph: root.ultraRetro ? "≡" : "▤"
             active: root.sidebarVisible
             onClicked: root.sidebarVisible = !root.sidebarVisible
           }
           IconButton {
             retro: root.retro
-            glyph: "←"
+            ultraRetro: root.ultraRetro
+            fontFamily: root.uiFont
+            glyph: root.ultraRetro ? "<" : "←"
             enabled: root.currentPane().canGoBack
             onClicked: root.currentPane().goBack()
           }
           IconButton {
             retro: root.retro
-            glyph: "→"
+            ultraRetro: root.ultraRetro
+            fontFamily: root.uiFont
+            glyph: root.ultraRetro ? ">" : "→"
             enabled: root.currentPane().canGoForward
             onClicked: root.currentPane().goForward()
           }
           IconButton {
             retro: root.retro
-            glyph: "↑"
+            ultraRetro: root.ultraRetro
+            fontFamily: root.uiFont
+            glyph: root.ultraRetro ? "^" : "↑"
             enabled: !root.currentPane().trash
             onClicked: root.currentPane().goUp()
           }
@@ -1231,40 +1264,60 @@ Item {
 
           IconButton {
             retro: root.retro
+            ultraRetro: root.ultraRetro
+            fontFamily: root.uiFont
+            visible: !root.ultraRetro
+            enabled: !root.ultraRetro
             glyph: "A−"
             onClicked: root.changeFontSize(-0.1)
           }
           IconButton {
             retro: root.retro
+            ultraRetro: root.ultraRetro
+            fontFamily: root.uiFont
+            visible: !root.ultraRetro
+            enabled: !root.ultraRetro
             glyph: "A+"
             onClicked: root.changeFontSize(0.1)
           }
           IconButton {
             retro: root.retro
-            glyph: "⌕"
+            ultraRetro: root.ultraRetro
+            fontFamily: root.uiFont
+            glyph: root.ultraRetro ? "S" : "⌕"
             active: root.searchActive
             onClicked: root.searchActive ? root.finishSearch() : root.openSearch("")
           }
           IconButton {
             retro: root.retro
+            ultraRetro: root.ultraRetro
+            fontFamily: root.uiFont
+            visible: !root.ultraRetro
             glyph: root.viewMode === "grid" ? "☰" : "▦"
             onClicked: root.viewMode = root.viewMode === "grid" ? "list" : "grid"
           }
           IconButton {
             retro: root.retro
+            ultraRetro: root.ultraRetro
+            fontFamily: root.uiFont
+            visible: !root.ultraRetro
             glyph: "▥"
             active: root.split
             onClicked: root.toggleSplit()
           }
           IconButton {
             retro: root.retro
-            glyph: "⋮"
+            ultraRetro: root.ultraRetro
+            fontFamily: root.uiFont
+            glyph: root.ultraRetro ? "≡" : "⋮"
             active: root.menuVisible
             onClicked: root.menuVisible ? (root.menuVisible = false) : root.openAppMenu()
           }
           IconButton {
             retro: root.retro
-            glyph: "✕"
+            ultraRetro: root.ultraRetro
+            fontFamily: root.uiFont
+            glyph: root.ultraRetro ? "X" : "✕"
             onClicked: root.dismiss()
           }
         }
@@ -1310,7 +1363,7 @@ Item {
                     anchors.fill: parent
                     anchors.topMargin: Style.space(2)
                     anchors.bottomMargin: Style.space(2)
-                    radius: Style.space(6)
+                    radius: root.ultraRetro ? 0 : Style.space(6)
                     color: crumbMouse.containsMouse && !crumb.modelData.last
                            ? root.hoverBg : "transparent"
                   }
@@ -1323,7 +1376,7 @@ Item {
                     text: crumb.modelData.label
                     textFormat: Text.PlainText
                     color: crumb.modelData.last ? root.ink : Util.alpha(root.ink, 0.68)
-                    font.family: "sans-serif"
+                    font.family: root.uiFont
                     font.pixelSize: root.fBody
                     font.weight: crumb.modelData.last ? Font.DemiBold : Font.Normal
                   }
@@ -1333,9 +1386,9 @@ Item {
                     anchors.rightMargin: Style.space(3)
                     anchors.verticalCenter: parent.verticalCenter
                     visible: !crumb.modelData.last
-                    text: "›"
+                    text: root.ultraRetro ? ">" : "›"
                     color: Util.alpha(root.ink, 0.4)
-                    font.family: "sans-serif"
+                    font.family: root.uiFont
                     font.pixelSize: root.fBody
                   }
 
@@ -1356,7 +1409,7 @@ Item {
             anchors.fill: parent
             anchors.topMargin: Style.space(8)
             anchors.bottomMargin: Style.space(8)
-            radius: Style.space(7)
+            radius: root.ultraRetro ? 0 : Style.space(7)
             color: Util.alpha(root.ink, 0.06)
             border.width: 1
             border.color: Util.alpha(root.accent, 0.5)
@@ -1370,7 +1423,7 @@ Item {
               color: root.ink
               selectionColor: root.accent
               selectedTextColor: root.panelBg
-              font.family: "sans-serif"
+              font.family: root.uiFont
               font.pixelSize: root.fBody
               clip: true
               selectByMouse: true
@@ -1384,7 +1437,7 @@ Item {
             anchors.fill: parent
             anchors.topMargin: Style.space(8)
             anchors.bottomMargin: Style.space(8)
-            radius: Style.space(7)
+            radius: root.ultraRetro ? 0 : Style.space(7)
             color: Util.alpha(root.ink, 0.06)
             border.width: 1
             border.color: Util.alpha(root.accent, 0.5)
@@ -1396,7 +1449,7 @@ Item {
               anchors.verticalCenter: parent.verticalCenter
               text: "⌕"
               color: Util.alpha(root.ink, 0.65)
-              font.family: "sans-serif"
+              font.family: root.uiFont
               font.pixelSize: root.fBody
             }
 
@@ -1412,7 +1465,7 @@ Item {
               color: root.ink
               selectionColor: root.accent
               selectedTextColor: root.panelBg
-              font.family: "sans-serif"
+              font.family: root.uiFont
               font.pixelSize: root.fBody
               clip: true
               selectByMouse: true
@@ -1428,7 +1481,7 @@ Item {
               anchors.verticalCenter: parent.verticalCenter
               text: "Search files…"
               color: Util.alpha(root.ink, 0.45)
-              font.family: "sans-serif"
+              font.family: root.uiFont
               font.pixelSize: root.fBody
             }
 
@@ -1439,7 +1492,7 @@ Item {
               anchors.verticalCenter: parent.verticalCenter
               text: "✕"
               color: Util.alpha(root.ink, 0.55)
-              font.family: "sans-serif"
+              font.family: root.uiFont
               font.pixelSize: root.fCaption
 
               MouseArea {
@@ -1496,7 +1549,7 @@ Item {
               verticalAlignment: Text.AlignVCenter
               text: "Places"
               color: Util.alpha(root.ink, 0.5)
-              font.family: "sans-serif"
+              font.family: root.uiFont
               font.pixelSize: root.fCaption
               font.weight: Font.DemiBold
             }
@@ -1510,6 +1563,8 @@ Item {
                 width: sidebarColumn.width
                 fontScale: root.fontScale
                 retro: root.retro
+                ultraRetro: root.ultraRetro
+                fontFamily: root.uiFont
                 label: modelData.label
                 icon: modelData.icon
                 current: root.currentPane().path === modelData.path
@@ -1525,7 +1580,7 @@ Item {
               topPadding: Style.space(8)
               text: "Saved"
               color: Util.alpha(root.ink, 0.5)
-              font.family: "sans-serif"
+              font.family: root.uiFont
               font.pixelSize: root.fCaption
               font.weight: Font.DemiBold
             }
@@ -1539,6 +1594,8 @@ Item {
                 width: sidebarColumn.width
                 fontScale: root.fontScale
                 retro: root.retro
+                ultraRetro: root.ultraRetro
+                fontFamily: root.uiFont
                 label: modelData.label
                 icon: modelData.icon
                 current: root.currentPane().path === modelData.path
@@ -1556,7 +1613,7 @@ Item {
               topPadding: Style.space(8)
               text: "Devices"
               color: Util.alpha(root.ink, 0.5)
-              font.family: "sans-serif"
+              font.family: root.uiFont
               font.pixelSize: root.fCaption
               font.weight: Font.DemiBold
             }
@@ -1570,6 +1627,8 @@ Item {
                 width: sidebarColumn.width
                 fontScale: root.fontScale
                 retro: root.retro
+                ultraRetro: root.ultraRetro
+                fontFamily: root.uiFont
                 label: modelData.label
                 icon: modelData.icon
                 current: root.currentPane().path === modelData.path
@@ -1584,13 +1643,37 @@ Item {
               RetroToggle {
                 anchors.left: parent.left
                 anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
+                anchors.top: parent.top
                 checked: root.retro
                 fontScale: root.fontScale
+                fontFamily: root.uiFont
+                ultraRetro: root.ultraRetro
                 ink: root.ink
                 accent: root.accent
                 panelBg: root.panelBg
                 onToggled: root.retro = !root.retro
+              }
+            }
+
+            Item {
+              width: parent.width
+              height: Style.space(28)
+
+              RetroToggle {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                label: "Ultra"
+                checkbox: true
+                checked: root.ultraRetro
+                enabled: root.retro
+                fontScale: root.fontScale
+                fontFamily: root.uiFont
+                ultraRetro: root.ultraRetro
+                ink: root.ink
+                accent: root.accent
+                panelBg: root.panelBg
+                onToggled: if (root.retro) root.ultraRetro = !root.ultraRetro
               }
             }
 
@@ -1617,6 +1700,8 @@ Item {
           service: backend
           fontScale: root.fontScale
           retro: root.retro
+          ultraRetro: root.ultraRetro
+          fontFamily: root.uiFont
           active: root.activePane === 0
           splitMode: root.split
           viewMode: root.viewMode
@@ -1653,6 +1738,8 @@ Item {
           service: backend
           fontScale: root.fontScale
           retro: root.retro
+          ultraRetro: root.ultraRetro
+          fontFamily: root.uiFont
           active: root.activePane === 1
           splitMode: root.split
           viewMode: root.viewMode
@@ -1714,7 +1801,18 @@ Item {
                 color: root.line
               }
 
+              Text {
+                visible: root.ultraRetro
+                anchors.centerIn: parent
+                text: fkey.modelData.key + " " + fkey.modelData.label
+                textFormat: Text.PlainText
+                color: root.ink
+                font.family: root.uiFont
+                font.pixelSize: root.fCaption
+              }
+
               Column {
+                visible: !root.ultraRetro
                 anchors.centerIn: parent
                 width: parent.width
                 spacing: 0
@@ -1724,7 +1822,7 @@ Item {
                   text: fkey.modelData.key
                   textFormat: Text.PlainText
                   color: root.accent
-                  font.family: "sans-serif"
+                  font.family: root.uiFont
                   font.pixelSize: root.fCaption
                   font.weight: Font.DemiBold
                   horizontalAlignment: Text.AlignHCenter
@@ -1735,7 +1833,7 @@ Item {
                   text: fkey.modelData.label
                   textFormat: Text.PlainText
                   color: Util.alpha(root.ink, 0.8)
-                  font.family: "sans-serif"
+                  font.family: root.uiFont
                   font.pixelSize: root.fCaption
                   horizontalAlignment: Text.AlignHCenter
                   elide: Text.ElideRight
@@ -1781,7 +1879,7 @@ Item {
           textFormat: Text.PlainText
           elide: Text.ElideRight
           color: Util.alpha(root.ink, 0.7)
-          font.family: "sans-serif"
+          font.family: root.uiFont
           font.pixelSize: root.fCaption
         }
 
@@ -1793,7 +1891,7 @@ Item {
           visible: root.job.running === true
           text: "Cancel"
           color: root.danger
-          font.family: "sans-serif"
+          font.family: root.uiFont
           font.pixelSize: root.fCaption
 
           MouseArea {
@@ -1814,7 +1912,7 @@ Item {
           elide: Text.ElideMiddle
           horizontalAlignment: Text.AlignRight
           color: Util.alpha(root.ink, 0.55)
-          font.family: "sans-serif"
+          font.family: root.uiFont
           font.pixelSize: root.fCaption
         }
       }
@@ -1837,7 +1935,7 @@ Item {
         height: menuColumn.implicitHeight + Style.space(8)
         x: Math.max(Style.space(8), Math.min(root.menuX, card.width - width - Style.space(8)))
         y: Math.max(Style.space(8), Math.min(root.menuY, card.height - height - Style.space(8)))
-        radius: Style.space(9)
+        radius: root.ultraRetro ? 0 : Style.space(9)
         color: root.panelBg
         border.width: 1
         border.color: Util.alpha(root.ink, 0.22)
@@ -1871,7 +1969,7 @@ Item {
                 visible: menuRow.modelData.sep !== true
                 anchors.fill: parent
                 anchors.margins: 1
-                radius: Style.space(5)
+                radius: root.ultraRetro ? 0 : Style.space(5)
                 color: menuMouse.containsMouse ? root.hoverBg : "transparent"
               }
 
@@ -1881,11 +1979,11 @@ Item {
                 anchors.leftMargin: Style.space(8)
                 anchors.right: shortcutText.left
                 anchors.verticalCenter: parent.verticalCenter
-                text: (menuRow.modelData.check ? "✓ " : "   ") + (menuRow.modelData.label || "")
+                text: ((menuRow.modelData.check ? (root.ultraRetro ? "* " : "✓ ") : "   ")) + (menuRow.modelData.label || "")
                 textFormat: Text.PlainText
                 elide: Text.ElideRight
                 color: menuRow.modelData.danger ? root.danger : root.ink
-                font.family: "sans-serif"
+                font.family: root.uiFont
                 font.pixelSize: root.fBody
               }
 
@@ -1898,7 +1996,7 @@ Item {
                 text: menuRow.modelData.shortcut || ""
                 textFormat: Text.PlainText
                 color: Util.alpha(root.ink, 0.42)
-                font.family: "sans-serif"
+                font.family: root.uiFont
                 font.pixelSize: root.fCaption
               }
 
@@ -1934,7 +2032,7 @@ Item {
         width: Math.min(Style.space(500), card.width - Style.space(48))
         height: Math.min(card.height - Style.space(48),
                          dialogColumn.implicitHeight + Style.space(40))
-        radius: Style.space(10)
+        radius: root.ultraRetro ? 0 : Style.space(10)
         color: root.panelBg
         border.width: 1
         border.color: Util.alpha(root.ink, 0.25)
@@ -1951,7 +2049,7 @@ Item {
             text: root.dialogTitle
             textFormat: Text.PlainText
             color: root.ink
-            font.family: "sans-serif"
+            font.family: root.uiFont
             font.pixelSize: root.fHeading
             font.weight: Font.DemiBold
             wrapMode: Text.Wrap
@@ -1963,7 +2061,7 @@ Item {
             text: root.dialogText
             textFormat: Text.PlainText
             color: Util.alpha(root.ink, 0.78)
-            font.family: "sans-serif"
+            font.family: root.uiFont
             font.pixelSize: root.fBody
             wrapMode: Text.Wrap
             lineHeight: 1.15
@@ -1973,7 +2071,7 @@ Item {
             visible: root.dialog === "mkdir" || root.dialog === "rename"
             width: parent.width
             height: Style.space(34)
-            radius: Style.space(7)
+            radius: root.ultraRetro ? 0 : Style.space(7)
             color: Util.alpha(root.ink, 0.06)
             border.width: 1
             border.color: Util.alpha(root.accent, 0.5)
@@ -1987,7 +2085,7 @@ Item {
               color: root.ink
               selectionColor: root.accent
               selectedTextColor: root.panelBg
-              font.family: "sans-serif"
+              font.family: root.uiFont
               font.pixelSize: root.fBody
               clip: true
               selectByMouse: true
@@ -2016,7 +2114,7 @@ Item {
                   text: helpRow.modelData.key
                   textFormat: Text.PlainText
                   color: root.accent
-                  font.family: "sans-serif"
+                  font.family: root.uiFont
                   font.pixelSize: root.fBody
                   font.weight: Font.DemiBold
                 }
@@ -2028,7 +2126,7 @@ Item {
                   text: helpRow.modelData.text
                   textFormat: Text.PlainText
                   color: root.ink
-                  font.family: "sans-serif"
+                  font.family: root.uiFont
                   font.pixelSize: root.fBody
                   wrapMode: Text.Wrap
                 }
@@ -2057,7 +2155,7 @@ Item {
                   text: propertyRow.modelData.key
                   textFormat: Text.PlainText
                   color: Util.alpha(root.ink, 0.55)
-                  font.family: "sans-serif"
+                  font.family: root.uiFont
                   font.pixelSize: root.fBody
                   elide: Text.ElideRight
                 }
@@ -2069,7 +2167,7 @@ Item {
                   text: propertyRow.modelData.value
                   textFormat: Text.PlainText
                   color: root.ink
-                  font.family: "sans-serif"
+                  font.family: root.uiFont
                   font.pixelSize: root.fBody
                   wrapMode: Text.Wrap
                 }
@@ -2097,6 +2195,8 @@ Item {
                   danger: modelData.danger === true
                   fontScale: root.fontScale
                   retro: root.retro
+                  ultraRetro: root.ultraRetro
+                  fontFamily: root.uiFont
                   onClicked: root.runDialogAction(modelData.action)
                 }
               }
@@ -2126,7 +2226,7 @@ Item {
         anchors.centerIn: parent
         width: Math.min(card.width - Style.space(56), Style.space(960))
         height: Math.min(card.height - Style.space(56), Style.space(720))
-        radius: Style.space(10)
+        radius: root.ultraRetro ? 0 : Style.space(10)
         color: root.panelBg
         border.width: 1
         border.color: Util.alpha(root.ink, 0.25)
@@ -2158,7 +2258,7 @@ Item {
             textFormat: Text.PlainText
             elide: Text.ElideMiddle
             color: root.ink
-            font.family: "sans-serif"
+            font.family: root.uiFont
             font.pixelSize: root.fBody
             font.weight: Font.DemiBold
           }
@@ -2172,17 +2272,19 @@ Item {
             textFormat: Text.PlainText
             elide: Text.ElideRight
             color: Util.alpha(root.ink, 0.55)
-            font.family: "sans-serif"
+            font.family: root.uiFont
             font.pixelSize: root.fCaption
           }
 
           IconButton {
             retro: root.retro
+            ultraRetro: root.ultraRetro
+            fontFamily: root.uiFont
             id: viewerClose
             anchors.right: parent.right
             anchors.rightMargin: Style.space(6)
             anchors.verticalCenter: parent.verticalCenter
-            glyph: "✕"
+            glyph: root.ultraRetro ? "X" : "✕"
             onClicked: root.closeViewer()
           }
         }
@@ -2222,7 +2324,7 @@ Item {
               text: root.viewerText
               textFormat: Text.PlainText
               color: root.ink
-              font.family: "monospace"
+              font.family: root.monoFont
               font.pixelSize: root.fBodySmall
               wrapMode: root.viewerWrap ? Text.Wrap : Text.NoWrap
               lineHeight: 1.15
@@ -2235,7 +2337,7 @@ Item {
             text: "Empty file"
             textFormat: Text.PlainText
             color: Util.alpha(root.ink, 0.5)
-            font.family: "sans-serif"
+            font.family: root.uiFont
             font.pixelSize: root.fBody
           }
         }
@@ -2252,7 +2354,7 @@ Item {
         anchors.bottomMargin: Style.space(14)
         width: Math.min(toastLabel.implicitWidth + Style.space(28), card.width - Style.space(32))
         height: Style.space(32)
-        radius: Style.space(8)
+        radius: root.ultraRetro ? 0 : Style.space(8)
         color: root.toastAngry ? root.danger : root.accent
 
         Text {
@@ -2262,7 +2364,7 @@ Item {
           text: root.toastText
           textFormat: Text.PlainText
           color: root.toastAngry ? (root.retro ? "#ffffff" : Commons.Color.foreground) : root.panelBg
-          font.family: "sans-serif"
+          font.family: root.uiFont
           font.pixelSize: root.fBody
           horizontalAlignment: Text.AlignHCenter
           elide: Text.ElideRight

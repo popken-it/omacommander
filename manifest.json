@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "id": "popkenr.omacommander",
-  "name": "OmaCommander",
-  "version": "2.0.0",
+  "id": "popkenr.omancommander",
+  "name": "OmaNCommander",
+  "version": "3.0.0",
   "author": "popkenr",
   "license": "MIT",
-  "description": "OmaCommander: a Nautilus-style file manager for the Omarchy shell, with two panes, Places, search, trash, lister and Total Commander function keys.",
+  "description": "OmaNCommander: a Nautilus-style file manager for the Omarchy shell, with two panes, Places, search, trash, lister and Total Commander function keys.",
   "kinds": [
     "overlay",
     "bar-widget"
@@ -16,8 +16,8 @@
     "barWidget": "qml/BarWidget.qml"
   },
   "barWidget": {
-    "displayName": "OmaCommander",
-    "description": "Opens OmaCommander",
+    "displayName": "OmaNCommander",
+    "description": "Opens OmaNCommander",
     "category": "Tools",
     "allowMultiple": false,
     "defaultSection": "right"

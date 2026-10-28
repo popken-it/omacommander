@@ -10,6 +10,8 @@ Rectangle {
   property bool danger: false
   property real fontScale: 1.0
   property bool retro: false
+  property bool ultraRetro: false
+  property string fontFamily: "sans-serif"
 
   readonly property color ink: retro ? "#c0c0c0" : Commons.Color.popups.text
   readonly property color accent: retro ? "#ffff55" : Commons.Color.accent
@@ -20,7 +22,7 @@ Rectangle {
 
   implicitWidth: labelText.implicitWidth + Style.space(26)
   implicitHeight: Style.space(30)
-  radius: Style.space(7)
+  radius: ultraRetro ? 0 : Style.space(7)
   color: primary ? (danger ? dangerColor : accent)
                   : (danger ? Util.alpha(dangerColor, 0.16)
                             : (mouse.containsMouse ? Util.alpha(ink, 0.10) : "transparent"))
@@ -34,8 +36,8 @@ Rectangle {
     textFormat: Text.PlainText
     color: root.primary ? (root.danger ? root.ink : root.panelBg)
                         : (root.danger ? root.dangerColor : root.ink)
-    font.family: "sans-serif"
-    font.pixelSize: Math.max(1, Math.round(Style.font.body * root.fontScale))
+    font.family: root.fontFamily
+    font.pixelSize: root.ultraRetro ? 16 : Math.max(1, Math.round(Style.font.body * root.fontScale))
   }
 
   MouseArea {

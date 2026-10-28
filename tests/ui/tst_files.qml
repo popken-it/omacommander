@@ -3,7 +3,7 @@ import QtTest
 import "../../qml"
 
 TestCase {
-  name: "OmaCommanderState"
+  name: "OmaNCommanderState"
 
   Files { id: files }
 
@@ -35,6 +35,16 @@ TestCase {
     pane.path = "/tmp/old/sub"
     files.recoverPanes(["/tmp/old"])
     compare(pane.path, "/tmp")
+  }
+
+  function test_ultra_only_with_retro() {
+    files.retro = true
+    files.ultraRetro = true
+    verify(files.ultraRetro)
+    compare(files.viewMode, "list")
+    verify(files.split)
+    files.retro = false
+    verify(!files.ultraRetro)
   }
 
   function test_retro_palette() {

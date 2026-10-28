@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""filesd - filesystem backend for the OmaCommander Omarchy plugin.
+"""filesd - filesystem backend for the OmaNCommander Omarchy plugin.
 
 The QML overlay talks one JSON object per line over stdin/stdout. Listing,
 searching and metadata are answered on the main loop; mutating work runs on a

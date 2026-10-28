@@ -13,28 +13,32 @@ Item {
   property bool removable: false
   property real fontScale: 1.0
   property bool retro: false
+  property bool ultraRetro: false
+  property string fontFamily: "sans-serif"
 
   readonly property color ink: retro ? "#c0c0c0" : Commons.Color.popups.text
   readonly property color accent: retro ? "#ffff55" : Commons.Color.accent
   readonly property color hoverBg: retro ? "#3300aaaa" : Util.alpha(Commons.Color.popups.text, 0.07)
-  readonly property color selectedBg: retro ? "#005f5f" : Util.alpha(Commons.Color.accent, 0.18)
+  readonly property color selectedBg: ultraRetro ? "#00aaaa" : (retro ? "#005f5f" : Util.alpha(Commons.Color.accent, 0.18))
+  readonly property color selectedInk: ultraRetro ? "#000000" : accent
 
   signal clicked()
   signal removeClicked()
 
-  height: Style.space(30)
+  height: ultraRetro ? 20 : Style.space(30)
 
   Rectangle {
     anchors.fill: parent
     anchors.topMargin: 1
     anchors.bottomMargin: 1
-    radius: Style.space(6)
+    radius: root.ultraRetro ? 0 : Style.space(6)
     color: root.current ? root.selectedBg
                         : (rowMouse.containsMouse ? root.hoverBg : "transparent")
   }
 
   Image {
-    x: Style.space(8)
+    x: Style.space(4)
+    visible: !root.ultraRetro
     anchors.verticalCenter: parent.verticalCenter
     width: Style.space(16)
     height: Style.space(16)
@@ -44,16 +48,16 @@ Item {
 
   Text {
     anchors.left: parent.left
-    anchors.leftMargin: Style.space(32)
+    anchors.leftMargin: root.ultraRetro ? Style.space(4) : Style.space(32)
     anchors.right: parent.right
     anchors.rightMargin: root.removable ? Style.space(26) : Style.space(8)
     anchors.verticalCenter: parent.verticalCenter
     text: root.label
     textFormat: Text.PlainText
     elide: Text.ElideRight
-    color: root.current ? root.accent : root.ink
-    font.family: "sans-serif"
-    font.pixelSize: Math.max(1, Math.round(Style.font.body * root.fontScale))
+    color: root.current ? root.selectedInk : root.ink
+    font.family: root.fontFamily
+    font.pixelSize: root.ultraRetro ? 16 : Math.max(1, Math.round(Style.font.body * root.fontScale))
   }
 
   MouseArea {
@@ -71,8 +75,8 @@ Item {
     visible: root.removable && (rowMouse.containsMouse || root.current)
     text: "✕"
     color: Util.alpha(root.ink, 0.55)
-    font.family: "sans-serif"
-    font.pixelSize: Math.max(1, Math.round(Style.font.caption * root.fontScale))
+    font.family: root.fontFamily
+    font.pixelSize: root.ultraRetro ? 16 : Math.max(1, Math.round(Style.font.caption * root.fontScale))
 
     MouseArea {
       anchors.fill: parent

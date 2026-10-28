@@ -10,6 +10,8 @@ Item {
   property string glyph: ""
   property bool active: false
   property bool retro: false
+  property bool ultraRetro: false
+  property string fontFamily: "sans-serif"
   property color ink: retro ? "#c0c0c0" : Commons.Color.popups.text
   property color accent: retro ? "#ffff55" : Commons.Color.accent
 
@@ -21,7 +23,7 @@ Item {
 
   Rectangle {
     anchors.fill: parent
-    radius: Style.space(6)
+    radius: root.ultraRetro ? 0 : Style.space(6)
     color: (mouse.containsMouse || root.active)
            ? Util.alpha(root.active ? root.accent : root.ink, root.active ? 0.18 : 0.10)
            : "transparent"
@@ -32,8 +34,8 @@ Item {
     text: root.glyph
     textFormat: Text.PlainText
     color: root.active ? root.accent : root.ink
-    font.family: "sans-serif"
-    font.pixelSize: Style.font.title
+    font.family: root.fontFamily
+    font.pixelSize: root.ultraRetro ? 16 : Style.font.title
     verticalAlignment: Text.AlignVCenter
     horizontalAlignment: Text.AlignHCenter
   }

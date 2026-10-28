@@ -8,7 +8,7 @@ import qs.Commons as Commons
 
 BarWidget {
   id: root
-  moduleName: "popkenr.omacommander"
+  moduleName: "popkenr.omancommander"
 
   readonly property bool iconFound: Quickshell.iconPath("folder", true) !== ""
 
@@ -39,8 +39,8 @@ BarWidget {
     hoverEnabled: true
     cursorShape: Qt.PointingHandCursor
     onClicked: Quickshell.execDetached(
-      ["omarchy-shell", "shell", "toggle", "popkenr.omacommander", "{}"])
-    onEntered: if (root.bar) root.bar.showTooltip(root, "OmaCommander")
+      ["omarchy-shell", "shell", "toggle", "popkenr.omancommander", "{}"])
+    onEntered: if (root.bar) root.bar.showTooltip(root, "OmaNCommander")
     onExited: if (root.bar) root.bar.hideTooltip(root)
   }
 }

@@ -21,16 +21,28 @@ Item {
   property var cutPaths: []
 
   property real fontScale: 1.0
-  readonly property int fCaption: Math.max(1, Math.round(Style.font.caption * fontScale))
-  readonly property int fBody: Math.max(1, Math.round(Style.font.body * fontScale))
-  readonly property int fTitle: Math.max(1, Math.round(Style.font.title * fontScale))
+  property bool ultraRetro: false
+  property string fontFamily: "sans-serif"
+  readonly property int fCaption: ultraRetro ? 16 : Math.max(1, Math.round(Style.font.caption * fontScale))
+  readonly property int fBody: ultraRetro ? 16 : Math.max(1, Math.round(Style.font.body * fontScale))
+  readonly property int fTitle: ultraRetro ? 16 : Math.max(1, Math.round(Style.font.title * fontScale))
 
   readonly property string trashPath: ":trash:"
-  readonly property int rowHeight: Math.max(Style.space(30), fBody + Style.space(16))
-  readonly property int stripHeight: splitMode ? Math.max(Style.space(26), fCaption + Style.space(10)) : 0
+  readonly property int rowHeight: ultraRetro ? 20 : Math.max(Style.space(30), fBody + Style.space(16))
+  readonly property int stripHeight: (splitMode || ultraRetro) ? (ultraRetro ? 20 : Math.max(Style.space(26), fCaption + Style.space(10))) : 0
   readonly property int sizeWidth: Style.space(88)
   readonly property int dateWidth: Style.space(124)
   readonly property int nameWidth: Math.max(Style.space(60), body.width - Style.space(38) - sizeWidth - dateWidth - Style.space(24))
+  readonly property int listNameX: ultraRetro ? Style.space(4) : Style.space(38)
+  readonly property int listNameWidth: ultraRetro
+    ? Math.max(Style.space(60), body.width - sizeWidth - dateWidth - Style.space(16))
+    : nameWidth
+  readonly property int listSizeX: ultraRetro
+    ? listNameX + listNameWidth + Style.space(6)
+    : Style.space(38) + nameWidth + Style.space(8)
+  readonly property int listDateX: ultraRetro
+    ? listSizeX + sizeWidth + Style.space(6)
+    : Style.space(38) + nameWidth + sizeWidth + Style.space(14)
 
   property string path: ""
   property string displayPath: ""
@@ -65,7 +77,8 @@ Item {
   property color danger: retro ? "#ff5555" : Commons.Color.urgent
   property color line: retro ? "#00aaaa" : Util.alpha(Commons.Color.popups.text, 0.12)
   property color hoverBg: retro ? "#3300aaaa" : Util.alpha(Commons.Color.popups.text, 0.07)
-  property color selectedBg: retro ? "#005f5f" : Util.alpha(Commons.Color.accent, 0.22)
+  property color selectedBg: ultraRetro ? "#00aaaa" : (retro ? "#005f5f" : Util.alpha(Commons.Color.accent, 0.22))
+  readonly property color selectedInk: ultraRetro ? "#000000" : ink
 
   signal paneActivated()
   signal openPath(string path)
@@ -507,11 +520,21 @@ Item {
   // ------------------------------------------------------------------- view
 
   Rectangle {
+    anchors.fill: parent
+    z: -1
+    color: root.ultraRetro ? "#0000a8" : "transparent"
+    border.width: root.ultraRetro ? 2 : 0
+    border.color: "#00aaaa"
+  }
+
+  Rectangle {
     id: strip
-    visible: root.splitMode
-    width: parent.width
+    visible: root.splitMode || root.ultraRetro
+    x: root.ultraRetro ? 2 : 0
+    width: parent.width - (root.ultraRetro ? 4 : 0)
     height: root.stripHeight
-    color: root.active ? Util.alpha(root.accent, 0.10) : "transparent"
+    color: root.ultraRetro ? (root.active ? "#005f5f" : "transparent")
+                            : (root.active ? Util.alpha(root.accent, 0.10) : "transparent")
 
     Rectangle {
       anchors.bottom: parent.bottom
@@ -522,26 +545,27 @@ Item {
 
     Image {
       id: stripIcon
-      x: Style.space(10)
+      x: Style.space(4)
       anchors.verticalCenter: parent.verticalCenter
       width: Style.space(14)
       height: Style.space(14)
+      visible: !root.ultraRetro
       source: root.iconSource({ dir: true })
       fillMode: Image.PreserveAspectFit
     }
 
     Text {
-      anchors.left: stripIcon.right
-      anchors.leftMargin: Style.space(7)
+      anchors.left: root.ultraRetro ? parent.left : stripIcon.right
+      anchors.leftMargin: root.ultraRetro ? Style.space(4) : Style.space(7)
       anchors.right: parent.right
       anchors.rightMargin: Style.space(10)
       anchors.verticalCenter: parent.verticalCenter
       text: root.searchMode ? ("Search: " + root.searchQuery) : root.displayPath
       textFormat: Text.PlainText
       elide: Text.ElideMiddle
-      color: root.active ? root.accent : Util.alpha(root.ink, 0.75)
-      font.family: "sans-serif"
-      font.pixelSize: root.fCaption
+      color: root.ultraRetro ? "#ffffff" : (root.active ? root.accent : Util.alpha(root.ink, 0.75))
+      font.family: root.fontFamily
+      font.pixelSize: root.ultraRetro ? 16 : root.fCaption
     }
 
     MouseArea {
@@ -556,6 +580,9 @@ Item {
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.bottom: parent.bottom
+    anchors.leftMargin: root.ultraRetro ? 2 : 0
+    anchors.rightMargin: root.ultraRetro ? 2 : 0
+    anchors.bottomMargin: root.ultraRetro ? 2 : 0
 
     GridView {
       id: grid
@@ -630,7 +657,7 @@ Item {
             text: gridCell.modelData.name
             textFormat: Text.PlainText
             color: root.ink
-            font.family: "sans-serif"
+            font.family: root.fontFamily
             font.pixelSize: root.fBody
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.Wrap
@@ -645,7 +672,7 @@ Item {
             text: gridCell.modelData.parentLabel || ""
             textFormat: Text.PlainText
             color: Util.alpha(root.ink, 0.55)
-            font.family: "sans-serif"
+            font.family: root.fontFamily
             font.pixelSize: root.fCaption
             horizontalAlignment: Text.AlignHCenter
             elide: Text.ElideMiddle
@@ -684,7 +711,8 @@ Item {
       Rectangle {
         id: listHeader
         width: parent.width
-        height: root.rowHeight - Style.space(2)
+        height: root.ultraRetro ? 0 : root.rowHeight - Style.space(2)
+        visible: !root.ultraRetro
         color: "transparent"
 
         Rectangle {
@@ -700,7 +728,7 @@ Item {
           anchors.verticalCenter: parent.verticalCenter
           text: "Name"
           color: Util.alpha(root.ink, 0.7)
-          font.family: "sans-serif"
+          font.family: root.fontFamily
           font.pixelSize: root.fCaption
           elide: Text.ElideRight
 
@@ -716,7 +744,7 @@ Item {
           anchors.verticalCenter: parent.verticalCenter
           text: (root.sortMode === "size" ? (root.sortAsc ? "Size ↑" : "Size ↓") : "Size")
           color: Util.alpha(root.ink, 0.7)
-          font.family: "sans-serif"
+          font.family: root.fontFamily
           font.pixelSize: root.fCaption
           horizontalAlignment: Text.AlignRight
 
@@ -732,7 +760,7 @@ Item {
           anchors.verticalCenter: parent.verticalCenter
           text: (root.sortMode === "modified" ? (root.sortAsc ? "Modified ↑" : "Modified ↓") : "Modified")
           color: Util.alpha(root.ink, 0.7)
-          font.family: "sans-serif"
+          font.family: root.fontFamily
           font.pixelSize: root.fCaption
           horizontalAlignment: Text.AlignRight
 
@@ -771,7 +799,7 @@ Item {
             anchors.rightMargin: Style.space(6)
             anchors.topMargin: 1
             anchors.bottomMargin: 1
-            radius: Style.space(6)
+            radius: root.ultraRetro ? 0 : Style.space(6)
             color: listRow.isSelected ? root.selectedBg
                                       : (listMouse.containsMouse ? root.hoverBg : "transparent")
           }
@@ -779,6 +807,7 @@ Item {
           Image {
             id: rowIcon
             x: Style.space(12)
+            visible: !root.ultraRetro
             anchors.verticalCenter: parent.verticalCenter
             width: Style.space(18)
             height: Style.space(18)
@@ -787,38 +816,44 @@ Item {
           }
 
           Text {
-            x: Style.space(38)
-            width: root.nameWidth
+            x: root.listNameX
+            width: root.listNameWidth
             anchors.verticalCenter: parent.verticalCenter
             text: listRow.modelData.name
             textFormat: Text.PlainText
-            color: root.ink
-            font.family: "sans-serif"
+            color: root.ultraRetro
+                   ? (listRow.isSelected ? root.selectedInk : (listRow.modelData.dir ? "#ffffff" : "#55ffff"))
+                   : root.ink
+            font.family: root.fontFamily
             font.pixelSize: root.fBody
             elide: Text.ElideMiddle
           }
 
           Text {
-            x: Style.space(38) + root.nameWidth + Style.space(8)
+            x: root.listSizeX
             width: root.sizeWidth - Style.space(8)
             anchors.verticalCenter: parent.verticalCenter
             text: root.sizeLabel(listRow.modelData)
-            color: Util.alpha(root.ink, 0.65)
-            font.family: "sans-serif"
+            color: root.ultraRetro
+                   ? (listRow.isSelected ? root.selectedInk : "#aaaaaa")
+                   : Util.alpha(root.ink, 0.65)
+            font.family: root.fontFamily
             font.pixelSize: root.fCaption
             horizontalAlignment: Text.AlignRight
             elide: Text.ElideRight
           }
 
           Text {
-            x: Style.space(38) + root.nameWidth + root.sizeWidth + Style.space(14)
+            x: root.listDateX
             width: root.dateWidth
             anchors.verticalCenter: parent.verticalCenter
             text: listRow.modelData.parentLabel
                   ? listRow.modelData.parentLabel : root.dateLabel(listRow.modelData)
-            color: listRow.modelData.parentLabel
-                   ? Util.alpha(root.accent, 0.85) : Util.alpha(root.ink, 0.65)
-            font.family: "sans-serif"
+            color: root.ultraRetro
+                   ? (listRow.isSelected ? root.selectedInk : "#aaaaaa")
+                   : (listRow.modelData.parentLabel
+                      ? Util.alpha(root.accent, 0.85) : Util.alpha(root.ink, 0.65))
+            font.family: root.fontFamily
             font.pixelSize: root.fCaption
             horizontalAlignment: listRow.modelData.parentLabel
                                  ? Text.AlignLeft : Text.AlignRight
@@ -858,7 +893,7 @@ Item {
       text: root.searchMode ? "No results" : (root.trash ? "Trash is empty" : "Folder is empty")
       textFormat: Text.PlainText
       color: Util.alpha(root.ink, 0.55)
-      font.family: "sans-serif"
+      font.family: root.fontFamily
       font.pixelSize: root.fTitle
       horizontalAlignment: Text.AlignHCenter
       wrapMode: Text.Wrap
@@ -871,7 +906,7 @@ Item {
       text: root.error
       textFormat: Text.PlainText
       color: root.danger
-      font.family: "sans-serif"
+      font.family: root.fontFamily
       font.pixelSize: root.fBody
       horizontalAlignment: Text.AlignHCenter
       wrapMode: Text.Wrap
@@ -885,7 +920,7 @@ Item {
       text: "Loading…"
       textFormat: Text.PlainText
       color: Util.alpha(root.ink, 0.55)
-      font.family: "sans-serif"
+      font.family: root.fontFamily
       font.pixelSize: root.fCaption
     }
   }

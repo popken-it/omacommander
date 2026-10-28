@@ -1,6 +1,6 @@
-# OmaCommander for Omarchy
+# OmaNCommander for Omarchy
 
-OmaCommander is a Nautilus-shaped file manager that runs as an Omarchy shell overlay. It has
+OmaNCommander is a Nautilus-shaped file manager that runs as an Omarchy shell overlay. It has
 the familiar places sidebar, header breadcrumbs, icon and list views, search,
 trash, rename/copy/move, and a proper properties dialog. On top of that it has
 the two-pane keyboard flow of
@@ -17,30 +17,32 @@ active Omarchy theme and needs no extra packages.
 On an Omarchy Quattro machine:
 
 ```bash
-cp -r omacommander ~/.config/omarchy/plugins/popkenr.omacommander
-omarchy plugin validate ~/.config/omarchy/plugins/popkenr.omacommander
-omarchy plugin enable popkenr.omacommander
+cp -r omancommander ~/.config/omarchy/plugins/popkenr.omancommander
+omarchy plugin validate ~/.config/omarchy/plugins/popkenr.omancommander
+omarchy plugin enable popkenr.omancommander
 ```
 
 Or publish the repo and install it the normal way:
 
 ```bash
-omarchy plugin add https://github.com/<you>/omacommander.git
-omarchy plugin enable popkenr.omacommander
+omarchy plugin add https://github.com/<you>/omancommander.git
+omarchy plugin enable popkenr.omancommander
 ```
 
-If you still have the old `popkenr.files` install, remove it first:
+If you still have an older install (`popkenr.files` or `popkenr.omacommander`),
+remove it first:
 
 ```bash
 omarchy plugin disable popkenr.files
 omarchy plugin remove popkenr.files
+omarchy plugin remove popkenr.omacommander
 ```
 
-A folder icon appears in the bar. Click it to open OmaCommander. A hotkey is not
+A folder icon appears in the bar. Click it to open OmaNCommander. A hotkey is not
 installed by default; add one to `~/.config/hypr/bindings.conf`:
 
 ```conf
-bindd = SUPER SHIFT, N, OmaCommander, exec, omarchy-shell shell toggle popkenr.omacommander '{}'
+bindd = SUPER SHIFT, N, OmaNCommander, exec, omarchy-shell shell toggle popkenr.omancommander '{}'
 ```
 
 Then `hyprctl reload`. The same command works from a terminal.
@@ -61,10 +63,10 @@ bar:
 | `F7` | New folder |
 | `F8` | Move to Trash (in Trash: delete permanently) |
 | `F9` | Open the menu |
-| `F10` | Close OmaCommander |
+| `F10` | Close OmaNCommander |
 | `Shift+F6` | Rename (the Total Commander alias) |
 | `Shift+F8` | Delete permanently |
-| `Alt+F4` | Close OmaCommander |
+| `Alt+F4` | Close OmaNCommander |
 
 `F5` and `F6` need the second pane; the bar tells you so when it is off.
 Total Commander itself uses `F2` to reread; this keeps `F2` for rename and
@@ -83,6 +85,7 @@ Other keys:
 | `Ctrl+H` | Show hidden files |
 | `Ctrl+D` | Add the current folder to Places |
 | `Ctrl+Shift+R` | Toggle Retro Norton Commander colours |
+| `Ctrl+Shift+U` | Toggle Ultra Retro text mode (only with Retro on) |
 | `Ctrl+=` / `Ctrl+-` | Larger / smaller text |
 | `Ctrl+0` | Reset text to 120% |
 | `Ctrl+R` | Reload |
@@ -92,7 +95,7 @@ Other keys:
 | `Shift+Delete` | Delete permanently; asks "Are you sure?" (Yes or Enter) |
 | `Ctrl+Shift+N` | New folder |
 | `Ctrl+I` | Properties |
-| `Ctrl+W` | Close OmaCommander |
+| `Ctrl+W` | Close OmaNCommander |
 
 Two-pane keys, from OMARCHOMANDER:
 
@@ -121,6 +124,9 @@ can be driven with the mouse or with Tab first.
   the top right scale the interface text from 80% to 160%.
 - A **Retro** switch at the bottom of the sidebar turns the colours into the
   classic Norton Commander blue/cyan/yellow palette.
+- **Ultra** (only available with Retro) renders the whole window in the IBM VGA
+  9x16 text font and turns both panes into flat text-mode panels: no icons,
+  cyan selection bar, white folders, cyan files, square double borders.
 - Search below the current folder, case-insensitive, capped at 400 results.
 - Freedesktop home trash: move, list with original location, restore, empty.
   Items land in `$XDG_DATA_HOME/Trash`, so other file managers can restore them.
@@ -149,6 +155,13 @@ Kept out to keep this one process, no extra dependencies, and no risky magic:
 - The lister shows text, a hex dump for binaries, and images. PDF, video,
   archives and office documents still go to their default application.
 - Open folders last for the shell session; saved Places persist across restarts.
+
+## Ultra Retro font
+
+`fonts/Px437_IBM_VGA_9x16.ttf` comes from VileR's
+[Oldschool PC Font Resource](https://int10h.org/oldschool-pc-fonts/fontlist/font?ibm_vga_9x16)
+and is licensed CC BY-SA 4.0. The full license and original readme are in
+`fonts/LICENSE.TXT` and `fonts/README.TXT`. The plugin code remains MIT.
 
 ## Backend and tests
 

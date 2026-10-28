@@ -153,7 +153,7 @@ Item {
       root.ready = false
       root.queue = []
       root.bookmarkVersion = 0
-      root.backendFailed("OmaCommander backend stopped")
+      root.backendFailed("OmaNCommander backend stopped")
       if (root.opened) reviveTimer.restart()
     }
   }
