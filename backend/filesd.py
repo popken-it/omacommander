@@ -484,6 +484,9 @@ class Job:
         })
 
     def conflict(self, src, dst):
+        # Prepare before emitting: a fast UI answer can arrive before this
+        # worker reaches wait_conflict().
+        self.server.prepare_conflict()
         self.server.emit({
             "event": "conflict", "id": self.id, "src": src, "dst": dst,
             "srcSize": safe_size(src), "dstSize": safe_size(dst),
@@ -659,9 +662,11 @@ class Server:
             except (BrokenPipeError, OSError):
                 self.closing = True
 
-    def wait_conflict(self):
+    def prepare_conflict(self):
         self.conflict_choice = ""
         self.conflict_event.clear()
+
+    def wait_conflict(self):
         while not self.conflict_event.wait(0.2):
             if self.closing:
                 return "abort"
