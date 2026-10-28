@@ -69,7 +69,7 @@ Item {
     Text {
       anchors.centerIn: parent
       visible: root.checked
-      text: root.ultraRetro ? "√" : "✓"
+      text: root.ultraRetro ? "X" : "✓"
       textFormat: Text.PlainText
       color: root.accent
       font.family: root.fontFamily

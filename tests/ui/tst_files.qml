@@ -37,7 +37,7 @@ TestCase {
     compare(pane.path, "/tmp")
   }
 
-  function test_ultra_only_with_retro() {
+  function test_boomer_only_with_retro() {
     files.retro = true
     files.ultraRetro = true
     verify(files.ultraRetro)

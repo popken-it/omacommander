@@ -107,7 +107,7 @@ Other keys:
 | `Ctrl+H` | Show hidden files |
 | `Ctrl+D` | Add the current folder to Places |
 | `Ctrl+Shift+R` | Toggle Retro Norton Commander colours |
-| `Ctrl+Shift+U` | Toggle Ultra Retro text mode (only with Retro on) |
+| `Ctrl+Shift+U` | Toggle Boomer-mode 9x16 text mode (only with Retro on) |
 | `Ctrl+=` / `Ctrl+-` | Larger / smaller text |
 | `Ctrl+0` | Reset text to 120% |
 | `Ctrl+R` | Reload |
@@ -146,8 +146,8 @@ can be driven with the mouse or with Tab first.
   the top right scale the interface text from 80% to 160%.
 - A **Retro** switch at the bottom of the sidebar turns the colours into the
   classic Norton Commander blue/cyan/yellow palette.
-- **Ultra** (only available with Retro) renders the whole window in the IBM VGA
-  9x16 text font and turns both panes into flat text-mode panels: no icons,
+- **Boomer-mode** (only available with Retro) renders the whole window in the
+  IBM VGA 9x16 text font and turns both panes into flat text-mode panels: no icons,
   cyan selection bar, white folders, cyan files, square double borders.
 - Search below the current folder, case-insensitive, capped at 400 results.
 - Freedesktop home trash: move, list with original location, restore, empty.
@@ -178,7 +178,7 @@ Kept out to keep this one process, no extra dependencies, and no risky magic:
   archives and office documents still go to their default application.
 - Open folders last for the shell session; saved Places persist across restarts.
 
-## Ultra Retro font
+## Boomer-mode font
 
 `fonts/Px437_IBM_VGA_9x16.ttf` comes from VileR's
 [Oldschool PC Font Resource](https://int10h.org/oldschool-pc-fonts/fontlist/font?ibm_vga_9x16)

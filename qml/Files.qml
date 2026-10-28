@@ -539,7 +539,7 @@ Item {
       { key: "Ctrl+- / Ctrl+=", text: "Smaller or larger text" },
       { key: "Ctrl+0", text: "Reset text to 120%" },
       { key: "Ctrl+Shift+R", text: "Toggle Retro Norton Commander colours" },
-      { key: "Ctrl+Shift+U", text: "Toggle Ultra Retro 9x16 text mode (Retro only)" },
+      { key: "Ctrl+Shift+U", text: "Toggle Boomer-mode 9x16 text mode (Retro only)" },
       { key: "Ctrl+R", text: "Reload" },
       { key: "Delete", text: "Move to Trash" },
       { key: "Shift+Delete", text: "Delete permanently" }
@@ -1665,7 +1665,7 @@ Item {
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
-                label: "Ultra"
+                label: "Boomer-mode"
                 checkbox: true
                 checked: root.ultraRetro
                 enabled: root.retro
