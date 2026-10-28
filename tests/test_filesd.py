@@ -343,6 +343,30 @@ class FilesdTest(unittest.TestCase):
         self.assertEqual(event["props"]["size"], 5)
         self.assertIn("rw", event["props"]["permissions"])
 
+    def test_read_text_and_binary(self):
+        ident = self.next_id()
+        self.client.send(op="read", id=ident, path=os.path.join(self.home, "note.txt"))
+        event = self.client.wait("file", ident)
+        self.assertIsNone(event["error"])
+        self.assertEqual(event["text"], "hello")
+        self.assertFalse(event["binary"])
+
+        binary = os.path.join(self.home, "data.bin")
+        with open(binary, "wb") as handle:
+            handle.write(b"\x00\x01binary\xff")
+        ident = self.next_id()
+        self.client.send(op="read", id=ident, path=binary)
+        event = self.client.wait("file", ident)
+        self.assertIsNone(event["error"])
+        self.assertTrue(event["binary"])
+        self.assertIn("00000000", event["hex"])
+        self.assertEqual(event["text"], "")
+
+        ident = self.next_id()
+        self.client.send(op="read", id=ident, path=self.home)
+        event = self.client.wait("file", ident)
+        self.assertIsNotNone(event["error"])
+
     def test_refuses_dangerous_delete(self):
         ident = self.next_id()
         self.client.send(op="delete", id=ident, paths=["/"])

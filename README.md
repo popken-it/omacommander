@@ -40,7 +40,30 @@ Then `hyprctl reload`. The same command works from a terminal.
 
 ## Keys
 
-Nautilus keys:
+The clickable bar above the status line is the Total Commander function-key
+bar:
+
+| Key | Action |
+|---|---|
+| `F1` | Help |
+| `F2` | Rename |
+| `F3` | View the file: text, hex for binary files, or an image |
+| `F4` | Edit in the Omarchy editor |
+| `F5` | Copy the selection to the other pane |
+| `F6` | Move the selection to the other pane |
+| `F7` | New folder |
+| `F8` | Move to Trash (in Trash: delete permanently) |
+| `F9` | Open the menu |
+| `F10` | Close Files |
+| `Shift+F6` | Rename (the Total Commander alias) |
+| `Shift+F8` | Delete permanently |
+| `Alt+F4` | Close Files |
+
+`F5` and `F6` need the second pane; the bar tells you so when it is off.
+Total Commander itself uses `F2` to reread; this keeps `F2` for rename and
+`Ctrl+R` for reload.
+
+Other keys:
 
 | Key | Action |
 |---|---|
@@ -49,17 +72,16 @@ Nautilus keys:
 | `Alt+Left` / `Alt+Right` | Back / forward |
 | `Ctrl+L` | Type a location |
 | `Ctrl+F` or just typing | Search this folder and below |
-| `Esc` | Clear search/menu/dialog, otherwise close |
+| `Esc` | Clear search/menu/dialog/viewer, otherwise close |
 | `Ctrl+H` | Show hidden files |
-| `Ctrl+R`, `F5` (single pane) | Reload |
+| `Ctrl+R` | Reload |
 | `Ctrl+A` | Select all |
 | `Ctrl+C` / `Ctrl+X` / `Ctrl+V` | Copy / cut / paste |
-| `F2` | Rename |
 | `Delete` | Move to Trash (asks first in Trash) |
 | `Shift+Delete` | Delete permanently, after confirmation |
 | `Ctrl+Shift+N` | New folder |
 | `Ctrl+I` | Properties |
-| `Ctrl+W`, `F10` | Close Files |
+| `Ctrl+W` | Close Files |
 
 Two-pane keys, from OMARCHOMANDER:
 
@@ -67,8 +89,6 @@ Two-pane keys, from OMARCHOMANDER:
 |---|---|
 | `Ctrl+Shift+D` | Show or hide the second pane |
 | `Tab` | Switch the active pane |
-| `F5` | Copy selection to the other pane |
-| `F6` | Move selection to the other pane |
 | `Ctrl+U` | Swap the two panes |
 
 In a split view each pane shows its own path strip; the active one is
@@ -87,6 +107,7 @@ highlighted. The other pane can be driven with the mouse or with Tab first.
 - Copy/move with per-file Replace/Skip/Cancel on conflicts, merge for folders,
   cross-filesystem moves, progress in the status bar, and Cancel.
 - Rename, new folder, permanent delete, properties, `xdg-open`.
+- Total Commander-style function-key bar and `F3` lister (text, hex, images).
 - Hidden files, sorting by name/size/modified, grid/list toggle.
 - Everything is keyboard operable; the mouse works too.
 
@@ -100,7 +121,8 @@ Kept out to keep this one process, no extra dependencies, and no risky magic:
   would need `.Trash-$uid` on that volume.
 - Search is a bounded filesystem walk, not Tracker. Very large trees stop at
   400 results or 20 seconds.
-- No file preview beyond image thumbnails; `xdg-open` handles documents.
+- The lister shows text, a hex dump for binaries, and images. PDF, video,
+  archives and office documents still go to `xdg-open`.
 - State (open folders) lasts for the shell session, not across restarts.
 
 ## Backend and tests

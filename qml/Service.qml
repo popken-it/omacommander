@@ -35,6 +35,7 @@ Item {
   signal jobEvent(var data)
   signal conflictAsked(var data)
   signal propsReady(var data)
+  signal fileReady(var data)
   signal backendError(var data)
   signal backendFailed(string message)
 
@@ -111,6 +112,9 @@ Item {
       break
     case "props":
       root.propsReady(event)
+      break
+    case "file":
+      root.fileReady(event)
       break
     case "error":
       root.backendError(event)

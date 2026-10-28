@@ -28,6 +28,8 @@ TRASH_PATH = ":trash:"
 COPY_CHUNK = 1024 * 1024
 SEARCH_LIMIT = 400
 SEARCH_SECONDS = 20
+READ_TEXT_LIMIT = 256 * 1024
+READ_HEX_LIMIT = 8 * 1024
 MUTATING = {"copy", "move", "trash", "delete", "restore", "emptyTrash", "mkdir", "rename"}
 
 IMAGE_EXT = {"jpg", "jpeg", "png", "gif", "webp", "bmp", "avif", "tif", "tiff", "heic", "heif", "ico"}
@@ -154,6 +156,17 @@ def item_hidden(name):
 def sort_entries(entries):
     entries.sort(key=lambda e: (not e["dir"], natural_key(e["name"])))
     return entries
+
+
+def hex_dump(data):
+    lines = []
+    for offset in range(0, len(data), 16):
+        chunk = data[offset:offset + 16]
+        hex_part = " ".join("%02x" % byte for byte in chunk)
+        hex_part = hex_part.ljust(16 * 3 - 1)
+        ascii_part = "".join(chr(byte) if 32 <= byte < 127 else "." for byte in chunk)
+        lines.append("%08x  %s  %s" % (offset, hex_part, ascii_part))
+    return "\n".join(lines)
 
 
 # --------------------------------------------------------------------- trash
@@ -542,6 +555,8 @@ class Server:
                                             bool(command.get("hidden"))))
             elif op == "props":
                 self.emit(self.props_event(job_id, command.get("path")))
+            elif op == "read":
+                self.emit(self.file_event(job_id, command.get("path")))
             elif op in MUTATING:
                 if self.busy:
                     self.emit({"event": "error", "id": job_id, "message": "another file operation is running"})
@@ -688,6 +703,30 @@ class Server:
             return {"event": "props", "id": job_id, "props": item, "error": None}
         except Exception as exc:
             return {"event": "props", "id": job_id, "props": None, "error": friendly_error(exc)}
+
+    def file_event(self, job_id, path):
+        result = {"event": "file", "id": job_id, "path": path, "name": "", "size": 0,
+                  "binary": False, "text": "", "hex": "", "truncated": False, "error": None}
+        try:
+            full = normalize(path)
+            st = os.stat(full)
+            if not stat.S_ISREG(st.st_mode):
+                raise ValueError("not a regular file")
+            with open(full, "rb") as handle:
+                data = handle.read(READ_TEXT_LIMIT)
+            result["path"] = full
+            result["name"] = os.path.basename(full)
+            result["size"] = int(st.st_size)
+            result["truncated"] = st.st_size > len(data)
+            if b"\x00" in data:
+                result["binary"] = True
+                result["hex"] = hex_dump(data[:READ_HEX_LIMIT])
+                result["truncated"] = st.st_size > READ_HEX_LIMIT
+            else:
+                result["text"] = data.decode("utf-8", "replace")
+        except Exception as exc:
+            result["error"] = friendly_error(exc)
+        return result
 
     # mutating ---------------------------------------------------------
 

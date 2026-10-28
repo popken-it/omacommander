@@ -32,8 +32,30 @@ Item {
   readonly property color selectedBg: Util.alpha(Commons.Color.accent, 0.18)
   readonly property int headerHeight: Math.max(Style.space(46), Style.font.title + Style.space(30))
   readonly property int statusHeight: Style.space(26)
+  readonly property int fkeyHeight: Style.space(34)
   readonly property int sidebarWidth: Style.space(188)
   readonly property int paneGap: 1
+
+  readonly property var fkeys: [
+    { key: "F1", label: "Help", action: "help" },
+    { key: "F2", label: "Rename", action: "rename" },
+    { key: "F3", label: "View", action: "view" },
+    { key: "F4", label: "Edit", action: "edit" },
+    { key: "F5", label: "Copy", action: "copyOther" },
+    { key: "F6", label: "Move", action: "moveOther" },
+    { key: "F7", label: "New", action: "mkdir" },
+    { key: "F8", label: "Delete", action: "trash" },
+    { key: "F9", label: "Menu", action: "menu" },
+    { key: "F10", label: "Quit", action: "quit" }
+  ]
+
+  property bool viewerOpen: false
+  property string viewerTitle: ""
+  property string viewerText: ""
+  property string viewerImage: ""
+  property string viewerInfo: ""
+  property bool viewerWrap: true
+  property int viewerReq: 0
 
   property int activePane: 0
   property bool split: false
@@ -79,7 +101,15 @@ Item {
   function focusKeys() {
     if (!opened) return
     Qt.callLater(function() {
-      if (!root.searchActive && !root.locationMode && root.dialog === "" && !root.menuVisible)
+      if (root.searchActive) {
+        searchField.forceActiveFocus()
+        return
+      }
+      if (root.locationMode) {
+        locationField.forceActiveFocus()
+        return
+      }
+      if (root.dialog === "" && !root.menuVisible)
         card.forceActiveFocus()
     })
   }
@@ -112,6 +142,8 @@ Item {
     locationMode = false
     dialog = ""
     menuVisible = false
+    viewerOpen = false
+    viewerReq = 0
     paneA.clearSearch()
     paneB.clearSearch()
     backend.open(payloadJson)
@@ -141,6 +173,8 @@ Item {
     pendingAction = ""
     pendingPaths = []
     conflict = ({})
+    viewerOpen = false
+    viewerReq = 0
     paneA.clearSearch()
     paneB.clearSearch()
     backend.close()
@@ -386,6 +420,94 @@ Item {
     var entry = currentPane().cursorEntry()
     if (!entry) return
     backend.request("props", { path: entry.path })
+  }
+
+  function openHelp() {
+    openDialog("help", "Function keys — Total Commander style", "",
+               [{ label: "Close", action: "close" }], false)
+  }
+
+  function helpLines() {
+    return [
+      { key: "F1", text: "Help" },
+      { key: "F2", text: "Rename the item under the cursor" },
+      { key: "F3", text: "View: text, hex for binary files, images" },
+      { key: "F4", text: "Edit the item in the Omarchy editor" },
+      { key: "F5", text: "Copy the selection to the other pane" },
+      { key: "F6", text: "Move the selection to the other pane" },
+      { key: "F7", text: "New folder" },
+      { key: "F8", text: "Move to Trash (in Trash: delete permanently)" },
+      { key: "F9", text: "Open the menu" },
+      { key: "F10", text: "Close Files" },
+      { key: "Shift+F6", text: "Rename (Total Commander alias)" },
+      { key: "Shift+F8", text: "Delete permanently" },
+      { key: "Alt+F4", text: "Close Files" },
+      { key: "Tab", text: "Switch pane (dual pane)" },
+      { key: "Ctrl+Shift+D", text: "Show or hide the second pane" },
+      { key: "Ctrl+L", text: "Type a location" },
+      { key: "Ctrl+F", text: "Search this folder and below" },
+      { key: "Ctrl+H", text: "Show hidden files" },
+      { key: "Ctrl+R", text: "Reload" },
+      { key: "Delete", text: "Move to Trash" },
+      { key: "Shift+Delete", text: "Delete permanently" }
+    ]
+  }
+
+  function viewCursor() {
+    var entry = currentPane().cursorEntry()
+    if (!entry) return
+    if (entry.dir) {
+      showToast("Select a file to view", true)
+      return
+    }
+    viewerOpen = true
+    viewerTitle = entry.name
+    viewerText = ""
+    viewerImage = ""
+    viewerInfo = ""
+    viewerWrap = true
+    viewerReq = 0
+    if (entry.kind === "image") {
+      viewerImage = entry.path
+      viewerInfo = Format.bytes(entry.size)
+      return
+    }
+    viewerText = "Loading…"
+    viewerReq = backend.request("read", { path: entry.path })
+  }
+
+  function closeViewer() {
+    viewerOpen = false
+    viewerReq = 0
+    viewerText = ""
+    viewerImage = ""
+    viewerInfo = ""
+    focusKeys()
+  }
+
+  function editCursor() {
+    var entry = currentPane().cursorEntry()
+    if (!entry) return
+    if (entry.dir) {
+      showToast("Select a file to edit", true)
+      return
+    }
+    Quickshell.execDetached(["omarchy-launch-editor", entry.path])
+  }
+
+  function runFunction(action) {
+    switch (action) {
+    case "help": openHelp(); break
+    case "rename": openRename(); break
+    case "view": viewCursor(); break
+    case "edit": editCursor(); break
+    case "copyOther": transferToOther(false); break
+    case "moveOther": transferToOther(true); break
+    case "mkdir": openMkdir(); break
+    case "trash": trashSelection(); break
+    case "menu": openAppMenu(); break
+    case "quit": dismiss(); break
+    }
   }
 
   function openExternal(path) {
@@ -661,6 +783,23 @@ Item {
 
   // -------------------------------------------------------------- key input
 
+  function handleFunctionKey(key, shift, alt) {
+    if (key === Qt.Key_F1) { openHelp(); return true }
+    if (key === Qt.Key_F2) { openRename(); return true }
+    if (key === Qt.Key_F3) { viewCursor(); return true }
+    if (key === Qt.Key_F4) { editCursor(); return true }
+    if (shift && key === Qt.Key_F6) { openRename(); return true }
+    if (key === Qt.Key_F5) { transferToOther(false); return true }
+    if (key === Qt.Key_F6) { transferToOther(true); return true }
+    if (key === Qt.Key_F7) { openMkdir(); return true }
+    if (shift && key === Qt.Key_F8) { confirmDelete(); return true }
+    if (key === Qt.Key_F8) { trashSelection(); return true }
+    if (key === Qt.Key_F9) { openAppMenu(); return true }
+    if (key === Qt.Key_F10) { dismiss(); return true }
+    if (alt && key === Qt.Key_F4) { dismiss(); return true }
+    return false
+  }
+
   function handleKey(event) {
     var key = event.key
     var ctrl = (event.modifiers & Qt.ControlModifier) !== 0
@@ -668,9 +807,19 @@ Item {
     var alt = (event.modifiers & Qt.AltModifier) !== 0
     var pane = currentPane()
 
+    if (viewerOpen) {
+      if (key === Qt.Key_Escape || key === Qt.Key_F3 || key === Qt.Key_F10
+          || (alt && key === Qt.Key_F4)) {
+        closeViewer()
+        event.accepted = true
+      }
+      return
+    }
+
     if (menuVisible) {
       if (key === Qt.Key_Escape) {
         menuVisible = false
+        focusKeys()
         event.accepted = true
       }
       return
@@ -687,7 +836,7 @@ Item {
         } else if (dialog === "conflict") {
           runDialogAction("skip")
           event.accepted = true
-        } else if (dialog === "props") {
+        } else if (dialog === "props" || dialog === "help") {
           closeDialog()
           event.accepted = true
         }
@@ -698,6 +847,8 @@ Item {
     if (locationMode) {
       if (key === Qt.Key_Escape) {
         cancelLocation()
+        event.accepted = true
+      } else if (handleFunctionKey(key, shift, alt)) {
         event.accepted = true
       }
       return
@@ -723,6 +874,10 @@ Item {
         pane.movePage(-1)
         event.accepted = true
       }
+      if (handleFunctionKey(key, shift, alt)) {
+        event.accepted = true
+        return
+      }
       return
     }
 
@@ -739,19 +894,7 @@ Item {
     if (ctrl && key === Qt.Key_I) { showProperties(); event.accepted = true; return }
     if (ctrl && key === Qt.Key_U) { swapPanes(); event.accepted = true; return }
     if (ctrl && key === Qt.Key_W) { dismiss(); event.accepted = true; return }
-    if (key === Qt.Key_F10) { dismiss(); event.accepted = true; return }
-    if (key === Qt.Key_F5) {
-      if (split) transferToOther(false)
-      else refreshPanes()
-      event.accepted = true
-      return
-    }
-    if (key === Qt.Key_F6) {
-      if (split) transferToOther(true)
-      event.accepted = true
-      return
-    }
-    if (key === Qt.Key_F2) { openRename(); event.accepted = true; return }
+    if (handleFunctionKey(key, shift, alt)) { event.accepted = true; return }
     if (key === Qt.Key_Tab) {
       if (split) setActive(1 - activePane)
       event.accepted = true
@@ -867,6 +1010,27 @@ Item {
       root.props = data.props || ({})
       root.openDialog("props", "Properties", "",
                       [{ label: "Close", action: "close" }], false)
+    }
+
+    onFileReady: function(data) {
+      if (data.id !== root.viewerReq) return
+      if (data.error) {
+        root.viewerOpen = false
+        root.showToast(String(data.error), true)
+        return
+      }
+      if (!root.viewerOpen) return
+      root.viewerTitle = String(data.name || root.viewerTitle)
+      if (data.binary) {
+        root.viewerText = String(data.hex || "")
+        root.viewerWrap = false
+        root.viewerInfo = "Binary · hex" + (data.truncated ? " · first 8 kB" : "")
+      } else {
+        root.viewerText = String(data.text || "")
+        root.viewerWrap = true
+        root.viewerInfo = "Text · " + Format.bytes(data.size) +
+                          (data.truncated ? " · first 256 kB" : "")
+      }
     }
 
     onBackendError: function(data) {
@@ -1187,7 +1351,7 @@ Item {
         id: sidebar
         anchors.left: parent.left
         anchors.top: header.bottom
-        anchors.bottom: status.top
+        anchors.bottom: fbar.top
         width: root.sidebarVisible ? root.sidebarWidth : 0
         clip: true
         color: root.sidebarBg
@@ -1354,7 +1518,7 @@ Item {
         anchors.left: sidebar.right
         anchors.right: parent.right
         anchors.top: header.bottom
-        anchors.bottom: status.top
+        anchors.bottom: fbar.top
 
         Pane {
           id: paneA
@@ -1412,6 +1576,90 @@ Item {
           onContextRequested: function(index, x, y) { root.openFileMenu(paneB, index, x, y) }
           onSearchCleared: root.finishSearch()
           onPathChanged: if (root.searchActive) root.finishSearch()
+        }
+      }
+
+      // ------------------------------------------------------- function keys
+
+      Rectangle {
+        id: fbar
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: status.top
+        height: root.fkeyHeight
+        color: root.chromeBg
+
+        Rectangle {
+          anchors.top: parent.top
+          anchors.left: parent.left
+          anchors.right: parent.right
+          height: 1
+          color: root.line
+        }
+
+        Row {
+          id: fkeyRow
+          anchors.fill: parent
+          spacing: 0
+
+          Repeater {
+            model: root.fkeys
+
+            delegate: Rectangle {
+              id: fkey
+              required property var modelData
+              required property int index
+
+              width: fkeyRow.width / root.fkeys.length
+              height: fkeyRow.height
+              color: fkeyMouse.containsMouse ? root.hoverBg : "transparent"
+
+              Rectangle {
+                visible: fkey.index < root.fkeys.length - 1
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                width: 1
+                color: root.line
+              }
+
+              Column {
+                anchors.centerIn: parent
+                width: parent.width
+                spacing: 0
+
+                Text {
+                  width: parent.width
+                  text: fkey.modelData.key
+                  textFormat: Text.PlainText
+                  color: root.accent
+                  font.family: "sans-serif"
+                  font.pixelSize: Style.font.caption
+                  font.weight: Font.DemiBold
+                  horizontalAlignment: Text.AlignHCenter
+                }
+
+                Text {
+                  width: parent.width
+                  text: fkey.modelData.label
+                  textFormat: Text.PlainText
+                  color: Util.alpha(root.ink, 0.8)
+                  font.family: "sans-serif"
+                  font.pixelSize: Style.font.caption
+                  horizontalAlignment: Text.AlignHCenter
+                  elide: Text.ElideRight
+                }
+              }
+
+              MouseArea {
+                id: fkeyMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.runFunction(fkey.modelData.action)
+              }
+            }
+          }
         }
       }
 
@@ -1657,6 +1905,47 @@ Item {
           }
 
           Column {
+            visible: root.dialog === "help"
+            width: parent.width
+            spacing: Style.space(3)
+
+            Repeater {
+              model: root.helpLines()
+
+              delegate: Item {
+                id: helpRow
+                required property var modelData
+
+                width: dialogColumn.width
+                height: Math.max(helpKey.implicitHeight, helpText.implicitHeight)
+
+                Text {
+                  id: helpKey
+                  width: Style.space(104)
+                  text: helpRow.modelData.key
+                  textFormat: Text.PlainText
+                  color: root.accent
+                  font.family: "sans-serif"
+                  font.pixelSize: Style.font.body
+                  font.weight: Font.DemiBold
+                }
+
+                Text {
+                  id: helpText
+                  x: Style.space(110)
+                  width: parent.width - Style.space(110)
+                  text: helpRow.modelData.text
+                  textFormat: Text.PlainText
+                  color: root.ink
+                  font.family: "sans-serif"
+                  font.pixelSize: Style.font.body
+                  wrapMode: Text.Wrap
+                }
+              }
+            }
+          }
+
+          Column {
             visible: root.dialog === "props"
             width: parent.width
             spacing: Style.space(7)
@@ -1723,6 +2012,139 @@ Item {
         }
       }
 
+      // --------------------------------------------------------------- viewer
+
+      Rectangle {
+        anchors.fill: parent
+        visible: root.viewerOpen
+        z: 92
+        color: Util.alpha("#000000", 0.45)
+
+        MouseArea {
+          anchors.fill: parent
+          onClicked: root.closeViewer()
+        }
+      }
+
+      Rectangle {
+        id: viewerCard
+        visible: root.viewerOpen
+        z: 93
+        anchors.centerIn: parent
+        width: Math.min(card.width - Style.space(56), Style.space(960))
+        height: Math.min(card.height - Style.space(56), Style.space(720))
+        radius: Style.space(10)
+        color: Commons.Color.popups.background
+        border.width: 1
+        border.color: Util.alpha(root.ink, 0.25)
+        clip: true
+
+        MouseArea { anchors.fill: parent; onClicked: {} }
+
+        Rectangle {
+          id: viewerHeader
+          width: parent.width
+          height: Style.space(40)
+          color: root.chromeBg
+
+          Rectangle {
+            anchors.bottom: parent.bottom
+            anchors.left: parent.left
+            anchors.right: parent.right
+            height: 1
+            color: root.line
+          }
+
+          Text {
+            anchors.left: parent.left
+            anchors.leftMargin: Style.space(14)
+            anchors.right: viewerInfoText.left
+            anchors.rightMargin: Style.space(12)
+            anchors.verticalCenter: parent.verticalCenter
+            text: root.viewerTitle
+            textFormat: Text.PlainText
+            elide: Text.ElideMiddle
+            color: root.ink
+            font.family: "sans-serif"
+            font.pixelSize: Style.font.body
+            font.weight: Font.DemiBold
+          }
+
+          Text {
+            id: viewerInfoText
+            anchors.right: viewerClose.left
+            anchors.rightMargin: Style.space(12)
+            anchors.verticalCenter: parent.verticalCenter
+            text: root.viewerInfo
+            textFormat: Text.PlainText
+            elide: Text.ElideRight
+            color: Util.alpha(root.ink, 0.55)
+            font.family: "sans-serif"
+            font.pixelSize: Style.font.caption
+          }
+
+          IconButton {
+            id: viewerClose
+            anchors.right: parent.right
+            anchors.rightMargin: Style.space(6)
+            anchors.verticalCenter: parent.verticalCenter
+            glyph: "✕"
+            onClicked: root.closeViewer()
+          }
+        }
+
+        Item {
+          id: viewerBody
+          anchors.top: viewerHeader.bottom
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.bottom: parent.bottom
+          anchors.margins: Style.space(12)
+
+          Image {
+            anchors.fill: parent
+            visible: root.viewerImage !== ""
+            source: root.viewerImage !== "" ? Util.fileUrl(root.viewerImage) : ""
+            fillMode: Image.PreserveAspectFit
+            asynchronous: true
+            cache: false
+            smooth: true
+          }
+
+          Flickable {
+            id: viewerFlick
+            anchors.fill: parent
+            visible: root.viewerImage === ""
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
+            contentWidth: Math.max(width, viewerTextItem.width)
+            contentHeight: Math.max(height, viewerTextItem.height)
+
+            Text {
+              id: viewerTextItem
+              width: root.viewerWrap ? viewerFlick.width : implicitWidth
+              text: root.viewerText
+              textFormat: Text.PlainText
+              color: root.ink
+              font.family: "monospace"
+              font.pixelSize: Style.font.bodySmall
+              wrapMode: root.viewerWrap ? Text.Wrap : Text.NoWrap
+              lineHeight: 1.15
+            }
+          }
+
+          Text {
+            anchors.centerIn: parent
+            visible: root.viewerImage === "" && root.viewerText === ""
+            text: "Empty file"
+            textFormat: Text.PlainText
+            color: Util.alpha(root.ink, 0.5)
+            font.family: "sans-serif"
+            font.pixelSize: Style.font.body
+          }
+        }
+      }
+
       // --------------------------------------------------------------- toast
 
       Rectangle {
@@ -1730,7 +2152,7 @@ Item {
         visible: root.toastText !== ""
         z: 120
         anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: status.top
+        anchors.bottom: fbar.top
         anchors.bottomMargin: Style.space(14)
         width: Math.min(toastLabel.implicitWidth + Style.space(28), card.width - Style.space(32))
         height: Style.space(32)
