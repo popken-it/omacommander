@@ -30,7 +30,7 @@ Item {
   readonly property color chromeBg: Util.alpha(Commons.Color.popups.text, 0.035)
   readonly property color sidebarBg: Util.alpha(Commons.Color.popups.text, 0.02)
   readonly property color selectedBg: Util.alpha(Commons.Color.accent, 0.18)
-  property real fontScale: 1.0
+  property real fontScale: 1.2
   readonly property int fCaption: Math.max(1, Math.round(Style.font.caption * fontScale))
   readonly property int fBodySmall: Math.max(1, Math.round(Style.font.bodySmall * fontScale))
   readonly property int fBody: Math.max(1, Math.round(Style.font.body * fontScale))
