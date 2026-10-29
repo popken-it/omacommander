@@ -584,6 +584,13 @@ Item {
     anchors.rightMargin: root.ultraRetro ? 2 : 0
     anchors.bottomMargin: root.ultraRetro ? 2 : 0
 
+    // Clicks below the last row land here: the views only take mouse input
+    // while their content overflows, so this catches the empty space.
+    MouseArea {
+      anchors.fill: parent
+      onClicked: root.paneActivated()
+    }
+
     GridView {
       id: grid
       anchors.fill: parent
@@ -594,6 +601,7 @@ Item {
       cellHeight: Math.max(Style.space(112), Style.space(76) + 3 * root.fBody)
       clip: true
       boundsBehavior: Flickable.StopAtBounds
+      interactive: contentHeight > height
       onWidthChanged: root.updateColumns()
 
       delegate: Item {
@@ -780,6 +788,7 @@ Item {
         model: root.items
         clip: true
         boundsBehavior: Flickable.StopAtBounds
+        interactive: contentHeight > height
 
         delegate: Item {
           id: listRow
@@ -923,12 +932,5 @@ Item {
       font.family: root.fontFamily
       font.pixelSize: root.fCaption
     }
-  }
-
-  // Any click in the pane makes it the active one, including empty space
-  // where no row delegate or header sits.
-  TapHandler {
-    acceptedButtons: Qt.LeftButton | Qt.RightButton
-    onTapped: root.paneActivated()
   }
 }
