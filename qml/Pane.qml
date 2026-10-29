@@ -33,9 +33,9 @@ Item {
   readonly property int sizeWidth: Style.space(88)
   readonly property int dateWidth: Style.space(124)
   readonly property int nameWidth: Math.max(Style.space(60), body.width - Style.space(38) - sizeWidth - dateWidth - Style.space(24))
-  readonly property int listNameX: ultraRetro ? Style.space(4) : Style.space(38)
+  readonly property int listNameX: ultraRetro ? Style.space(8) : Style.space(38)
   readonly property int listNameWidth: ultraRetro
-    ? Math.max(Style.space(60), body.width - sizeWidth - dateWidth - Style.space(16))
+    ? Math.max(Style.space(60), body.width - sizeWidth - dateWidth - Style.space(20))
     : nameWidth
   readonly property int listSizeX: ultraRetro
     ? listNameX + listNameWidth + Style.space(6)
