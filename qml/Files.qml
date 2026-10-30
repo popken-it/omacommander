@@ -51,7 +51,10 @@ Item {
   readonly property int statusHeight: ultraRetro ? Style.space(20) : Math.max(Style.space(26), fCaption + Style.space(12))
   readonly property int fkeyHeight: ultraRetro ? Style.space(20) : Math.max(Style.space(34), 2 * fCaption + Style.space(14))
   readonly property int sidebarWidth: ultraRetro ? Style.space(148) : Style.space(188)
-  readonly property int paneGap: 1
+  // Boomer-mode panels sit in from the window and each other, so the blue
+  // background shows on both sides of their vertical borders.
+  readonly property int paneGap: ultraRetro ? Style.space(8) : 1
+  readonly property int paneInset: ultraRetro ? Style.space(8) : 0
 
   readonly property var fkeys: [
     { key: "F1", label: "Help", action: "help" },
@@ -1541,8 +1544,14 @@ Item {
         }
 
         Flickable {
-          anchors.fill: parent
-          anchors.margins: Style.space(8)
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.top: parent.top
+          anchors.bottom: versionLabel.top
+          anchors.leftMargin: Style.space(8)
+          anchors.rightMargin: Style.space(8)
+          anchors.topMargin: Style.space(8)
+          anchors.bottomMargin: Style.space(4)
           contentWidth: width
           contentHeight: sidebarColumn.height
           clip: true
@@ -1690,6 +1699,24 @@ Item {
 
           }
         }
+
+        Text {
+          id: versionLabel
+          objectName: "versionLabel"
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.bottom: parent.bottom
+          anchors.leftMargin: Style.space(8)
+          anchors.rightMargin: Style.space(8)
+          anchors.bottomMargin: Style.space(6)
+          text: root.manifest && root.manifest.version ? "v" + root.manifest.version : ""
+          textFormat: Text.PlainText
+          visible: text !== ""
+          color: Util.alpha(root.ink, 0.45)
+          font.family: root.uiFont
+          font.pixelSize: root.fCaption
+          elide: Text.ElideRight
+        }
       }
 
       // -------------------------------------------------------------- panes
@@ -1704,9 +1731,11 @@ Item {
         Pane {
           id: paneA
           objectName: "paneA"
-          x: 0
+          x: root.paneInset
           y: 0
-          width: root.split ? Math.floor(content.width / 2) : content.width
+          width: Math.max(0, root.split
+                             ? Math.floor((content.width - 2 * root.paneInset - root.paneGap) / 2)
+                             : content.width - 2 * root.paneInset)
           height: content.height
           service: backend
           fontScale: root.fontScale
@@ -1730,8 +1759,8 @@ Item {
         }
 
         Rectangle {
-          visible: root.split
-          x: paneA.width
+          visible: root.split && !root.ultraRetro
+          x: paneA.x + paneA.width
           y: 0
           width: root.paneGap
           height: content.height
@@ -1742,9 +1771,9 @@ Item {
           id: paneB
           objectName: "paneB"
           visible: root.split
-          x: paneA.width + root.paneGap
+          x: paneA.x + paneA.width + root.paneGap
           y: 0
-          width: Math.max(0, content.width - paneA.width - root.paneGap)
+          width: Math.max(0, content.width - paneA.x - paneA.width - root.paneGap - root.paneInset)
           height: content.height
           service: backend
           fontScale: root.fontScale

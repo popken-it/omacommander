@@ -63,6 +63,28 @@ TestCase {
     verify(!files.ultraRetro)
   }
 
+  function test_boomer_pane_gutter() {
+    files.retro = true
+    files.ultraRetro = true
+    var a = findItem(files, "paneA")
+    var b = findItem(files, "paneB")
+    var contentWidth = a.parent.width
+    verify(files.paneInset > 0)
+    compare(a.x, files.paneInset)
+    compare(b.x, a.x + a.width + files.paneGap)
+    verify(Math.abs(b.width - a.width) <= 1)
+    compare(b.x + b.width + files.paneInset, contentWidth)
+    files.retro = false
+  }
+
+  function test_version_label_matches_manifest() {
+    files.manifest = { id: "test", version: "9.9.9" }
+    var label = findItem(files, "versionLabel")
+    verify(label)
+    compare(label.text, "v9.9.9")
+    files.manifest = null
+  }
+
   function test_retro_palette() {
     files.retro = true
     compare(String(files.panelBg), "#0000a8")

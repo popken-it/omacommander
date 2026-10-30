@@ -151,7 +151,10 @@ anywhere in a pane makes it the active one; `Tab` does the same.
   classic Norton Commander blue/cyan/yellow palette.
 - **Boomer-mode** (only available with Retro) renders the whole window in the
   IBM VGA 9x16 text font and turns both panes into flat text-mode panels: no icons,
-  cyan selection bar, white folders, cyan files, square double borders.
+  cyan selection bar, white folders, cyan files, square double borders, and a
+  blue gutter on both sides of the pane borders.
+- The plugin version is shown at the bottom of the sidebar, above the
+  function-key bar.
 - Search below the current folder, case-insensitive, capped at 400 results.
 - Freedesktop home trash: move, list with original location, restore, empty.
   Items land in `$XDG_DATA_HOME/Trash`, so other file managers can restore them.
