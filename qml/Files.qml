@@ -145,6 +145,10 @@ Item {
   function focusKeys() {
     if (!opened) return
     Qt.callLater(function() {
+      if (root.jobVisible()) {
+        progressCard.forceActiveFocus()
+        return
+      }
       if (root.searchActive) {
         searchField.forceActiveFocus()
         return
@@ -1239,6 +1243,7 @@ Item {
         if (ok && String(data.action) === "mkdir" && newFolder !== "")
           (newPane === 1 ? paneB : paneA).navigate(newFolder)
         if (root.searchActive) root.runSearch()
+        root.focusKeys()
       }
     }
 
@@ -1302,6 +1307,7 @@ Item {
       paneB.loading = false
       root.recovering = root.opened
       root.showToast(String(message || "OmaNCommander backend stopped"), true)
+      root.focusKeys()
     }
   }
 
@@ -2206,6 +2212,17 @@ Item {
         color: root.panelBg
         border.width: 1
         border.color: Util.alpha(root.ink, 0.25)
+        focus: root.jobVisible()
+
+        onVisibleChanged: if (visible && root.dialog === "") forceActiveFocus()
+
+        Keys.priority: Keys.BeforeItem
+        Keys.onPressed: function(event) {
+          if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+            backend.send({ op: "cancel" })
+            event.accepted = true
+          }
+        }
 
         MouseArea { anchors.fill: parent; onClicked: {} }
 
