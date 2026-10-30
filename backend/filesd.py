@@ -363,12 +363,16 @@ class Trash:
             names = []
         except OSError as exc:
             return [str(exc)]
+        if job is not None:
+            job.total = len(names)
         for name in names:
             if job is not None:
                 job.check()
             target = os.path.join(self.files, name)
             try:
                 remove_item(target, job)
+                if job is not None:
+                    job.progress(name)
                 try:
                     os.remove(os.path.join(self.info, name + ".trashinfo"))
                 except FileNotFoundError:
@@ -460,21 +464,41 @@ class Job:
         self.done = 0
         self.last_emit = 0.0
         self.total = 0
+        self.bytes_done = 0
+        self.bytes_total = 0
+        self.current = ""
+        self.started = time.monotonic()
         self.removed = []
 
     def check(self):
         if self.server.cancel_requested:
             raise Cancelled()
 
+    def begin(self, current):
+        self.current = current
+        self.flush()
+
+    def add_bytes(self, count):
+        self.bytes_done += count
+        self.flush()
+
     def progress(self, current):
         self.done += 1
+        self.current = current
+        self.flush()
+
+    def flush(self):
         now = time.monotonic()
-        if now - self.last_emit > 0.1 or self.done == 1:
-            self.last_emit = now
-            self.server.emit({
-                "event": "job", "id": self.id, "state": "progress", "action": self.action,
-                "current": current, "done": self.done, "total": self.total,
-            })
+        if self.last_emit and now - self.last_emit <= 0.1:
+            return
+        self.last_emit = now
+        elapsed = max(now - self.started, 0.001)
+        self.server.emit({
+            "event": "job", "id": self.id, "state": "progress", "action": self.action,
+            "current": self.current, "done": self.done, "total": self.total,
+            "bytesDone": self.bytes_done, "bytesTotal": self.bytes_total,
+            "speed": int(self.bytes_done / elapsed),
+        })
 
     def error(self, message):
         self.errors.append(message)
@@ -511,8 +535,35 @@ def safe_mtime(path):
         return 0.0
 
 
+def tree_bytes(paths, job=None):
+    """Sum the regular-file bytes a copy will read, for the progress box."""
+    total = 0
+    for path in paths:
+        if job is not None:
+            job.check()
+        try:
+            if os.path.islink(path) or not os.path.isdir(path):
+                if os.path.isfile(path):
+                    total += os.lstat(path).st_size
+                continue
+        except OSError:
+            continue
+        for root, _dirs, files in os.walk(path):
+            for name in files:
+                if job is not None:
+                    job.check()
+                full = os.path.join(root, name)
+                try:
+                    if not os.path.islink(full):
+                        total += os.lstat(full).st_size
+                except OSError:
+                    pass
+    return total
+
+
 def copy_file(src, dst, job):
     job.check()
+    job.begin(os.path.basename(src))
     handle, temp = tempfile.mkstemp(prefix=".filesd-", dir=os.path.dirname(dst) or ".")
     os.close(handle)
     try:
@@ -523,6 +574,7 @@ def copy_file(src, dst, job):
                 if not chunk:
                     break
                 target.write(chunk)
+                job.add_bytes(len(chunk))
         shutil.copystat(src, temp)
         if os.path.lexists(dst):
             remove_item(dst)
@@ -582,6 +634,12 @@ def copy_item(src, dst, job):
 
 class _NullJob:
     def check(self):
+        return
+
+    def begin(self, name):
+        return
+
+    def add_bytes(self, count):
         return
 
     def progress(self, name):
@@ -971,7 +1029,7 @@ class Server:
         ok = True
         try:
             self.emit({"event": "job", "id": job_id, "state": "start", "action": op,
-                       "total": 0})
+                       "total": 0, "dest": command.get("dest", "")})
             if op == "mkdir":
                 message = self.job_mkdir(job, command)
             elif op == "rename":
@@ -1003,6 +1061,7 @@ class Server:
                     "event": "job", "id": job_id, "state": "done", "action": op, "ok": ok,
                     "message": message if message else ("done" if ok else "failed"),
                     "errors": job.errors[:50], "done": job.done,
+                    "bytesDone": job.bytes_done, "bytesTotal": job.bytes_total,
                     "removed": job.removed,
                 })
 
@@ -1040,6 +1099,8 @@ class Server:
         if not sources:
             raise ValueError("nothing selected")
         job.total = len(sources)
+        # A same-filesystem move is a rename: count items, not bytes.
+        job.bytes_total = 0 if move else tree_bytes(sources, job)
         copied = 0
         for source in sources:
             if source == "/":

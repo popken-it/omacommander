@@ -85,6 +85,19 @@ TestCase {
     files.manifest = null
   }
 
+  function test_job_progress_box_state() {
+    files.job = { running: true, action: "copy", current: "a", done: 1, total: 4,
+                  bytesDone: 25, bytesTotal: 100, speed: 10, dest: "/tmp" }
+    verify(files.jobVisible())
+    compare(files.jobFraction(), 0.25)
+    compare(files.jobCount(), "1 of 4")
+    compare(files.jobDetail(), "25 B of 100 B  ·  10 B/s  ·  8 s left")
+    files.job = { running: true, action: "rename" }
+    verify(!files.jobVisible())
+    files.job = ({})
+    verify(!files.jobVisible())
+  }
+
   function test_retro_palette() {
     files.retro = true
     compare(String(files.panelBg), "#0000a8")

@@ -855,12 +855,59 @@ Item {
     return out
   }
 
+  function jobVerb(action) {
+    var verbs = { copy: "Copying", move: "Moving", trash: "Moving to Trash",
+                  delete: "Deleting", restore: "Restoring", emptyTrash: "Emptying Trash",
+                  mkdir: "Creating folder", rename: "Renaming" }
+    return verbs[String(action)] || "Working"
+  }
+
+  function jobVisible() {
+    var action = String(job.action || "")
+    return job.running === true && action !== "mkdir" && action !== "rename"
+  }
+
+  function jobFraction() {
+    var bytesTotal = Number(job.bytesTotal || 0)
+    if (bytesTotal > 0)
+      return Math.max(0, Math.min(1, Number(job.bytesDone || 0) / bytesTotal))
+    var total = Number(job.total || 0)
+    if (total > 0) return Math.max(0, Math.min(1, Number(job.done || 0) / total))
+    return -1
+  }
+
+  function jobEta() {
+    var speed = Number(job.speed || 0)
+    var bytesTotal = Number(job.bytesTotal || 0)
+    if (speed <= 0 || bytesTotal <= 0) return ""
+    var seconds = Math.max(0, bytesTotal - Number(job.bytesDone || 0)) / speed
+    if (seconds < 1) return "less than a second left"
+    if (seconds < 60) return Math.ceil(seconds) + " s left"
+    if (seconds < 3600) return Math.ceil(seconds / 60) + " min left"
+    return Math.ceil(seconds / 3600) + " h left"
+  }
+
+  function jobDetail() {
+    var parts = []
+    var bytesTotal = Number(job.bytesTotal || 0)
+    if (bytesTotal > 0) {
+      parts.push(Format.bytes(Number(job.bytesDone || 0)) + " of " + Format.bytes(bytesTotal))
+      if (Number(job.speed || 0) > 0) parts.push(Format.bytes(job.speed) + "/s")
+    }
+    var eta = jobEta()
+    if (eta !== "") parts.push(eta)
+    return parts.join("  ·  ")
+  }
+
+  function jobCount() {
+    var total = Number(job.total || 0)
+    if (total <= 0) return ""
+    return Math.min(Number(job.done || 0), total) + " of " + total
+  }
+
   function statusLabel() {
     if (job.running) {
-      var verbs = { copy: "Copying", move: "Moving", trash: "Moving to Trash",
-                    delete: "Deleting", restore: "Restoring", emptyTrash: "Emptying Trash",
-                    mkdir: "Creating folder", rename: "Renaming" }
-      var text = (verbs[String(job.action)] || "Working")
+      var text = jobVerb(job.action)
       if (job.current) text += " " + job.current
       if (Number(job.done || 0) > 0) text += "  ·  " + job.done
       return text
@@ -1074,10 +1121,17 @@ Item {
 
     onJobEvent: function(data) {
       if (data.state === "start") {
-        root.job = { running: true, action: data.action, current: "", done: 0 }
+        root.job = { running: true, action: data.action, current: "",
+                     done: 0, total: Number(data.total || 0),
+                     bytesDone: 0, bytesTotal: Number(data.bytesTotal || 0),
+                     speed: 0, dest: String(data.dest || "") }
       } else if (data.state === "progress") {
         root.job = { running: true, action: data.action, current: data.current || "",
-                     done: Number(data.done || 0) }
+                     done: Number(data.done || 0), total: Number(data.total || 0),
+                     bytesDone: Number(data.bytesDone || 0),
+                     bytesTotal: Number(data.bytesTotal || 0),
+                     speed: Number(data.speed || 0),
+                     dest: String(data.dest || root.job.dest || "") }
       } else if (data.state === "done") {
         var ok = data.ok === true
         root.job = ({})
@@ -2048,6 +2102,128 @@ Item {
                 cursorShape: Qt.PointingHandCursor
                 onClicked: root.runMenuAction(menuRow.modelData.action)
               }
+            }
+          }
+        }
+      }
+
+      // --------------------------------------------------------- progress box
+
+      Rectangle {
+        id: progressCard
+        objectName: "progressCard"
+        visible: root.jobVisible()
+        z: 89
+        anchors.centerIn: parent
+        width: Math.min(Style.space(520), card.width - Style.space(48))
+        height: progressColumn.implicitHeight + Style.space(32)
+        radius: root.ultraRetro ? 0 : Style.space(10)
+        color: root.panelBg
+        border.width: 1
+        border.color: Util.alpha(root.ink, 0.25)
+
+        MouseArea { anchors.fill: parent; onClicked: {} }
+
+        Column {
+          id: progressColumn
+          x: Style.space(18)
+          y: Style.space(16)
+          width: parent.width - Style.space(36)
+          spacing: Style.space(9)
+
+          Item {
+            width: parent.width
+            height: Math.max(progressTitle.implicitHeight, progressCount.implicitHeight)
+
+            Text {
+              id: progressTitle
+              width: parent.width - progressCount.width - Style.space(12)
+              text: root.jobVerb(root.job.action)
+              textFormat: Text.PlainText
+              color: root.ink
+              font.family: root.uiFont
+              font.pixelSize: root.fHeading
+              font.weight: Font.DemiBold
+              elide: Text.ElideRight
+            }
+
+            Text {
+              id: progressCount
+              anchors.right: parent.right
+              text: root.jobCount()
+              textFormat: Text.PlainText
+              color: Util.alpha(root.ink, 0.65)
+              font.family: root.uiFont
+              font.pixelSize: root.fBody
+            }
+          }
+
+          Text {
+            width: parent.width
+            text: String(root.job.current || "Preparing…")
+            textFormat: Text.PlainText
+            color: Util.alpha(root.ink, 0.85)
+            font.family: root.uiFont
+            font.pixelSize: root.fBody
+            elide: Text.ElideMiddle
+          }
+
+          Rectangle {
+            width: parent.width
+            height: Style.space(10)
+            radius: root.ultraRetro ? 0 : Style.space(5)
+            color: Util.alpha(root.ink, 0.12)
+            clip: true
+
+            Rectangle {
+              visible: root.jobFraction() >= 0
+              width: Math.max(0, parent.width * Math.max(0, root.jobFraction()))
+              height: parent.height
+              radius: parent.radius
+              color: root.accent
+
+              Behavior on width {
+                NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
+              }
+            }
+          }
+
+          Text {
+            visible: root.jobDetail() !== ""
+            width: parent.width
+            text: root.jobDetail()
+            textFormat: Text.PlainText
+            color: Util.alpha(root.ink, 0.6)
+            font.family: root.uiFont
+            font.pixelSize: root.fCaption
+            elide: Text.ElideRight
+          }
+
+          Text {
+            visible: String(root.job.dest || "") !== ""
+            width: parent.width
+            text: "to " + String(root.job.dest || "")
+            textFormat: Text.PlainText
+            color: Util.alpha(root.ink, 0.55)
+            font.family: root.uiFont
+            font.pixelSize: root.fCaption
+            elide: Text.ElideMiddle
+          }
+
+          Item {
+            width: parent.width
+            height: progressCancel.height
+
+            ActionButton {
+              id: progressCancel
+              anchors.right: parent.right
+              label: "Cancel"
+              danger: true
+              fontScale: root.fontScale
+              retro: root.retro
+              ultraRetro: root.ultraRetro
+              fontFamily: root.uiFont
+              onClicked: backend.send({ op: "cancel" })
             }
           }
         }

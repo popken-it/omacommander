@@ -159,7 +159,8 @@ anywhere in a pane makes it the active one; `Tab` does the same.
 - Freedesktop home trash: move, list with original location, restore, empty.
   Items land in `$XDG_DATA_HOME/Trash`, so other file managers can restore them.
 - Copy/move with per-file Replace/Skip/Cancel on conflicts, merge for folders,
-  cross-filesystem moves, progress in the status bar, and Cancel.
+  cross-filesystem moves, a Total Commander-style progress box (file, bytes,
+  speed, time left) and Cancel.
 - Rename, new folder, permanent delete, properties, and opening files in the
   default application for their type (via GIO). Deleting always asks first.
 - If a folder shown in a pane is moved or deleted, that pane moves up to the

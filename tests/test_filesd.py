@@ -421,6 +421,31 @@ class FilesdTest(unittest.TestCase):
         with open(os.path.join(merged, "two.txt")) as handle:
             self.assertEqual(handle.read(), "2")
 
+    def test_copy_reports_byte_progress(self):
+        payload = "x" * (2 * 1024 * 1024)
+        source = self.make("payload.bin", payload)
+        dest = self.make("dest", dir=True)
+        ident = self.next_id()
+        self.client.send(op="copy", id=ident, sources=[source], dest=dest)
+        start = progress = done = None
+        while done is None:
+            event = self.client.read()
+            if event.get("event") != "job" or event.get("id") != ident:
+                continue
+            if event.get("state") == "start":
+                start = event
+            elif event.get("state") == "progress":
+                progress = event
+            elif event.get("state") == "done":
+                done = event
+        self.assertEqual(start["dest"], dest)
+        self.assertIsNotNone(progress)
+        self.assertEqual(progress["bytesTotal"], len(payload))
+        self.assertIn("speed", progress)
+        self.assertEqual(done["bytesDone"], len(payload))
+        self.assertEqual(done["bytesTotal"], len(payload))
+        self.assertTrue(os.path.isfile(os.path.join(dest, "payload.bin")))
+
     def test_move_broken_symlink(self):
         link = os.path.join(self.home, "broken")
         os.symlink(os.path.join(self.home, "missing-target"), link)
