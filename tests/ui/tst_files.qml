@@ -85,6 +85,15 @@ TestCase {
     files.manifest = null
   }
 
+  function test_version_label_reads_manifest_file() {
+    files.manifest = null
+    var file = findItem(files, "manifestFile")
+    verify(file)
+    file.content = '{"version":"8.8.8"}'
+    compare(findItem(files, "versionLabel").text, "v8.8.8")
+    file.content = ""
+  }
+
   function test_job_progress_box_state() {
     files.job = { running: true, action: "copy", current: "a", done: 1, total: 4,
                   bytesDone: 25, bytesTotal: 100, speed: 10, dest: "/tmp" }

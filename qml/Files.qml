@@ -3,6 +3,7 @@
 // theme tokens; the actual files live in backend/filesd.py.
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import Quickshell.Wayland
 import qs.Commons
 import qs.Commons as Commons
@@ -15,7 +16,26 @@ Item {
   property var manifest: null
   property bool opened: false
 
-  readonly property string pluginId: manifest && manifest.id ? String(manifest.id) : "popkenr.omancommander"
+  // The host does not always pass its manifest, so fall back to the file next
+  // to this plugin for the version line in the sidebar.
+  readonly property var manifestData: {
+    if (manifest && manifest.version) return manifest
+    try {
+      return JSON.parse(manifestFile.text() || "{}")
+    } catch (error) {
+      return ({})
+    }
+  }
+
+  FileView {
+    id: manifestFile
+    objectName: "manifestFile"
+    path: Qt.resolvedUrl("../manifest.json")
+    blockLoading: true
+    printErrors: false
+  }
+
+  readonly property string pluginId: manifestData.id ? String(manifestData.id) : "popkenr.omancommander"
   readonly property string trashPath: ":trash:"
   readonly property string home: backend.home || Quickshell.env("HOME") || "/"
 
@@ -1828,7 +1848,7 @@ Item {
           anchors.leftMargin: Style.space(8)
           anchors.rightMargin: Style.space(8)
           anchors.bottomMargin: Style.space(6)
-          text: root.manifest && root.manifest.version ? "v" + root.manifest.version : ""
+          text: root.manifestData.version ? "v" + root.manifestData.version : ""
           textFormat: Text.PlainText
           visible: text !== ""
           color: Util.alpha(root.ink, 0.45)
