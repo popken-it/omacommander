@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "popkenr.omancommander",
   "name": "OmaNCommander",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "author": "popkenr",
   "license": "MIT",
   "description": "OmaNCommander: a Nautilus-style file manager for the Omarchy shell, with two panes, Places, search, trash, lister, Boomer-mode VGA text mode and Total Commander function keys.",

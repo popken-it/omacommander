@@ -102,6 +102,10 @@ Item {
   property var job: ({})
   property var clipboard: ({ mode: "", paths: [] })
   property bool pendingCut: false
+  property bool transferFromCut: false
+  property string transferDest: ""
+  property string mkdirTarget: ""
+  property int mkdirPane: -1
 
   property bool menuVisible: false
   property real menuX: 0
@@ -395,8 +399,8 @@ Item {
       showToast("Cannot paste in this folder", true)
       return
     }
-    pendingCut = clipboard.mode === "cut"
-    backend.request(pendingCut ? "move" : "copy", { sources: clipboard.paths, dest: pane.path })
+    openTransfer(clipboard.mode === "cut", clipboard.paths, pane.path,
+                 clipboard.mode === "cut")
   }
 
   function transferToOther(move) {
@@ -411,7 +415,27 @@ Item {
     }
     var paths = currentPane().selectionPaths()
     if (paths.length === 0) return
-    backend.request(move ? "move" : "copy", { sources: paths, dest: target.path })
+    openTransfer(move, paths, target.path, false)
+  }
+
+  // Total Commander asks before it moves bytes; OK is the default action.
+  function openTransfer(move, paths, dest, fromCut) {
+    if (!paths || paths.length === 0) return
+    pendingPaths = paths
+    pendingAction = move ? "move" : "copy"
+    transferFromCut = fromCut === true
+    transferDest = String(dest || "")
+    var count = paths.length
+    openDialog("transfer", move ? "Move" : "Copy",
+               (move ? "Move " : "Copy ") + count +
+               (count === 1 ? " item" : " items") + " to the folder below.",
+               [{ label: "Cancel", action: "cancel" },
+                { label: "OK", action: "accept", primary: true }])
+    Qt.callLater(function() {
+      dialogField.text = root.transferDest
+      dialogField.forceActiveFocus()
+      dialogField.selectAll()
+    })
   }
 
   function openInOtherPane() {
@@ -432,7 +456,7 @@ Item {
       showToast("Cannot create a folder here", true)
       return
     }
-    openInput("mkdir", "New Folder", "Untitled Folder", "Create")
+    openInput("mkdir", "New Folder", "Untitled Folder", "OK")
   }
 
   function openRename() {
@@ -444,7 +468,7 @@ Item {
       return
     }
     pendingPaths = [entry.path]
-    openInput("rename", "Rename", entry.name, "Rename")
+    openInput("rename", "Rename", entry.name, "OK")
   }
 
   function trashSelection() {
@@ -460,8 +484,8 @@ Item {
     var count = paths.length
     openDialog("confirm", "Are you sure?",
                count + (count === 1 ? " item" : " items") + " will be moved to Trash.",
-               [{ label: "No", action: "cancel" },
-                { label: "Yes", action: "accept", primary: true }])
+               [{ label: "Cancel", action: "cancel" },
+                { label: "OK", action: "accept", primary: true }])
   }
 
   function confirmDelete() {
@@ -473,23 +497,30 @@ Item {
     openDialog("confirm", "Are you sure?",
                count + (count === 1 ? " item" : " items") +
                " will be deleted permanently. This cannot be undone.",
-               [{ label: "No", action: "cancel" },
-                { label: "Yes", action: "accept", primary: true, danger: true }])
+               [{ label: "Cancel", action: "cancel" },
+                { label: "OK", action: "accept", primary: true, danger: true }])
   }
 
   function confirmEmptyTrash() {
     pendingAction = "emptyTrash"
     openDialog("confirm", "Are you sure?",
                "Every item in the Trash will be deleted permanently. This cannot be undone.",
-               [{ label: "No", action: "cancel" },
-                { label: "Yes", action: "accept", primary: true, danger: true }])
+               [{ label: "Cancel", action: "cancel" },
+                { label: "OK", action: "accept", primary: true, danger: true }])
   }
 
   function restoreSelection() {
     if (!currentPane().trash) return
     var paths = currentPane().selectionPaths()
     if (paths.length === 0) return
-    backend.request("restore", { paths: paths })
+    pendingPaths = paths
+    pendingAction = "restore"
+    var count = paths.length
+    openDialog("confirm", "Restore items?",
+               count + (count === 1 ? " item" : " items") +
+               " will be moved back to the original location.",
+               [{ label: "Cancel", action: "cancel" },
+                { label: "OK", action: "accept", primary: true }])
   }
 
   function showProperties() {
@@ -522,9 +553,9 @@ Item {
       { key: "F2", text: "Rename the item under the cursor" },
       { key: "F3", text: "View: text, hex for binary files, images" },
       { key: "F4", text: "Edit the item in the Omarchy editor" },
-      { key: "F5", text: "Copy the selection to the other pane" },
-      { key: "F6", text: "Move the selection to the other pane" },
-      { key: "F7", text: "New folder" },
+      { key: "F5", text: "Copy the selection to a folder (default: the other pane)" },
+      { key: "F6", text: "Move the selection to a folder (default: the other pane)" },
+      { key: "F7", text: "New folder (opens it after OK)" },
       { key: "F8", text: "Move to Trash (in Trash: delete permanently)" },
       { key: "F9", text: "Open the menu" },
       { key: "F10", text: "Close OmaNCommander" },
@@ -639,6 +670,8 @@ Item {
     dialogText = ""
     pendingAction = ""
     pendingPaths = []
+    transferFromCut = false
+    transferDest = ""
     if (dialogField) dialogField.text = ""
     focusKeys()
   }
@@ -677,10 +710,34 @@ Item {
         return
       }
       if (kind === "mkdir") {
-        backend.request("mkdir", { path: currentPane().path, name: name })
+        var parent = currentPane().path
+        backend.request("mkdir", { path: parent, name: name })
+        root.mkdirTarget = (parent === "/" ? "" : parent.replace(/\/+$/, "")) + "/" + name
+        root.mkdirPane = root.activePane
       } else {
         backend.request("rename", { path: pendingPaths[0], name: name })
       }
+      closeDialog()
+      return
+    }
+
+    if (dialog === "transfer") {
+      var dest = String(dialogField.text || "").trim()
+      if (dest === "") {
+        showToast("Enter a destination folder", true)
+        return
+      }
+      if (dest === "~" || dest.indexOf("~/") === 0) dest = home + dest.slice(1)
+      if (dest.charAt(0) !== "/") {
+        showToast("Enter a full path", true)
+        return
+      }
+      if (dest === trashPath) {
+        showToast("Trash cannot receive files", true)
+        return
+      }
+      pendingCut = transferFromCut
+      backend.request(pendingAction, { sources: pendingPaths, dest: dest })
       closeDialog()
       return
     }
@@ -690,6 +747,8 @@ Item {
         backend.request("trash", { paths: pendingPaths })
       else if (pendingAction === "delete")
         backend.request("delete", { paths: pendingPaths })
+      else if (pendingAction === "restore")
+        backend.request("restore", { paths: pendingPaths })
       else if (pendingAction === "emptyTrash")
         backend.request("emptyTrash", {})
       closeDialog()
@@ -1151,8 +1210,14 @@ Item {
             message += " — " + data.errors[0]
           root.showToast(message, true)
         }
+        var newFolder = String(root.mkdirTarget || "")
+        var newPane = root.mkdirPane
+        root.mkdirTarget = ""
+        root.mkdirPane = -1
         root.recoverPanes(data.removed || [])
         root.refreshPanes()
+        if (ok && String(data.action) === "mkdir" && newFolder !== "")
+          (newPane === 1 ? paneB : paneA).navigate(newFolder)
         if (root.searchActive) root.runSearch()
       }
     }
@@ -2284,7 +2349,8 @@ Item {
           }
 
           Rectangle {
-            visible: root.dialog === "mkdir" || root.dialog === "rename"
+            visible: root.dialog === "mkdir" || root.dialog === "rename" ||
+                     root.dialog === "transfer"
             width: parent.width
             height: Style.space(34)
             radius: root.ultraRetro ? 0 : Style.space(7)

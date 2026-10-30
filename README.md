@@ -83,9 +83,9 @@ bar:
 | `F2` | Rename |
 | `F3` | View the file: text, hex for binary files, or an image |
 | `F4` | Edit in the Omarchy editor |
-| `F5` | Copy the selection to the other pane |
-| `F6` | Move the selection to the other pane |
-| `F7` | New folder |
+| `F5` | Copy the selection (dialog defaults to the other pane) |
+| `F6` | Move the selection (dialog defaults to the other pane) |
+| `F7` | New folder (opens it after OK) |
 | `F8` | Move to Trash (in Trash: delete permanently) |
 | `F9` | Open the menu |
 | `F10` | Close OmaNCommander |
@@ -160,7 +160,9 @@ anywhere in a pane makes it the active one; `Tab` does the same.
   Items land in `$XDG_DATA_HOME/Trash`, so other file managers can restore them.
 - Copy/move with per-file Replace/Skip/Cancel on conflicts, merge for folders,
   cross-filesystem moves, a Total Commander-style progress box (file, bytes,
-  speed, time left) and Cancel.
+  speed, time left) and Cancel. Every file operation (copy, move, new folder,
+  rename, trash, delete, restore, paste) asks with OK/Cancel, and OK is the
+  default; F3/F4 stay prompt-free.
 - Rename, new folder, permanent delete, properties, and opening files in the
   default application for their type (via GIO). Deleting always asks first.
 - If a folder shown in a pane is moved or deleted, that pane moves up to the

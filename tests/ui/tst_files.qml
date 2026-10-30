@@ -98,6 +98,41 @@ TestCase {
     verify(!files.jobVisible())
   }
 
+  function test_operation_dialogs_default_to_ok() {
+    files.openTransfer(true, ["/tmp/a"], "/tmp/dest", false)
+    compare(files.dialog, "transfer")
+    compare(files.pendingAction, "move")
+    compare(files.dialogActions[0].label, "Cancel")
+    compare(files.dialogActions[1].label, "OK")
+    verify(files.dialogActions[1].primary)
+    files.closeDialog()
+
+    files.confirmEmptyTrash()
+    compare(files.dialog, "confirm")
+    compare(files.dialogActions[0].label, "Cancel")
+    compare(files.dialogActions[1].label, "OK")
+    verify(files.dialogActions[1].primary)
+    files.closeDialog()
+
+    files.openInput("rename", "Rename", "old.txt", "OK")
+    compare(files.dialogActions[0].label, "Cancel")
+    compare(files.dialogActions[1].label, "OK")
+    files.closeDialog()
+  }
+
+  function test_mkdir_opens_the_new_folder() {
+    var pane = findItem(files, "paneA")
+    var service = findItem(files, "backend")
+    pane.path = "/tmp"
+    files.activePane = 0
+    files.mkdirTarget = "/tmp/New Folder"
+    files.mkdirPane = 0
+    service.jobEvent({ event: "job", state: "done", action: "mkdir",
+                       ok: true, message: "Folder created" })
+    compare(pane.path, "/tmp/New Folder")
+    compare(files.mkdirTarget, "")
+  }
+
   function test_retro_palette() {
     files.retro = true
     compare(String(files.panelBg), "#0000a8")
