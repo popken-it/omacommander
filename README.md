@@ -116,11 +116,14 @@ Other keys:
 | `Ctrl+R` | Reload |
 | `Ctrl+A` | Select all |
 | `Ctrl+C` / `Ctrl+X` / `Ctrl+V` | Copy / cut / paste |
-| `Delete` | Move to Trash; asks "Are you sure?" (Yes or Enter) |
-| `Shift+Delete` | Delete permanently; asks "Are you sure?" (Yes or Enter) |
+| `Delete` | Move to Trash; asks "Are you sure?" (OK or Enter) |
+| `Shift+Delete` | Delete permanently; asks "Are you sure?" (OK or Enter) |
 | `Ctrl+Shift+N` | New folder |
 | `Ctrl+I` | Properties |
 | `Ctrl+W` | Close OmaNCommander |
+
+In a confirmation dialog, `Left`/`Right` picks a button and `Enter` activates
+the highlighted one; OK starts out selected.
 
 Two-pane keys, from OMARCHOMANDER:
 

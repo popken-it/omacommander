@@ -8,6 +8,7 @@ Rectangle {
   property string label: ""
   property bool primary: false
   property bool danger: false
+  property bool selected: false
   property real fontScale: 1.0
   property bool retro: false
   property bool ultraRetro: false
@@ -24,10 +25,12 @@ Rectangle {
   implicitHeight: Style.space(30)
   radius: ultraRetro ? 0 : Style.space(7)
   color: primary ? (danger ? dangerColor : accent)
-                  : (danger ? Util.alpha(dangerColor, 0.16)
-                            : (mouse.containsMouse ? Util.alpha(ink, 0.10) : "transparent"))
-  border.width: primary ? 0 : 1
-  border.color: danger ? Util.alpha(dangerColor, 0.55) : Util.alpha(ink, 0.25)
+                  : (selected ? Util.alpha(ink, 0.16)
+                              : (danger ? Util.alpha(dangerColor, 0.16)
+                                        : (mouse.containsMouse ? Util.alpha(ink, 0.10) : "transparent")))
+  border.width: selected ? 2 : (primary ? 0 : 1)
+  border.color: selected ? ink
+                         : (danger ? Util.alpha(dangerColor, 0.55) : Util.alpha(ink, 0.25))
 
   Text {
     id: labelText

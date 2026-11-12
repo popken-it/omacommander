@@ -115,6 +115,7 @@ Item {
   property string dialogTitle: ""
   property string dialogText: ""
   property var dialogActions: []
+  property int dialogIndex: 0
   property string pendingAction: ""
   property var pendingPaths: []
   property var props: ({})
@@ -667,11 +668,18 @@ Item {
 
   // ---------------------------------------------------------------- dialogs
 
+  function defaultDialogIndex(actions) {
+    for (var i = 0; i < actions.length; i++)
+      if (actions[i].primary) return i
+    return 0
+  }
+
   function openDialog(kind, title, text, actions) {
     dialog = kind
     dialogTitle = title
     dialogText = text
     dialogActions = actions
+    dialogIndex = defaultDialogIndex(actions)
     Qt.callLater(function() { card.forceActiveFocus() })
   }
 
@@ -681,6 +689,7 @@ Item {
     dialogText = ""
     dialogActions = [{ label: "Cancel", action: "cancel" },
                      { label: confirmLabel, action: "accept", primary: true }]
+    dialogIndex = defaultDialogIndex(dialogActions)
     Qt.callLater(function() {
       dialogField.text = initial
       dialogField.forceActiveFocus()
@@ -692,6 +701,7 @@ Item {
     dialog = ""
     dialogActions = []
     dialogText = ""
+    dialogIndex = 0
     pendingAction = ""
     pendingPaths = []
     transferFromCut = false
@@ -1060,17 +1070,16 @@ Item {
       if (key === Qt.Key_Escape) {
         runDialogAction("cancel")
         event.accepted = true
+      } else if ((key === Qt.Key_Left || key === Qt.Key_Right)
+                 && dialog !== "mkdir" && dialog !== "rename" && dialog !== "transfer"
+                 && dialogActions.length > 1) {
+        var step = key === Qt.Key_Left ? -1 : 1
+        dialogIndex = (dialogIndex + step + dialogActions.length) % dialogActions.length
+        event.accepted = true
       } else if (key === Qt.Key_Return || key === Qt.Key_Enter) {
-        if (dialog === "confirm") {
-          runDialogAction("accept")
-          event.accepted = true
-        } else if (dialog === "conflict") {
-          runDialogAction("skip")
-          event.accepted = true
-        } else if (dialog === "props" || dialog === "help") {
-          closeDialog()
-          event.accepted = true
-        }
+        if (dialogIndex >= 0 && dialogIndex < dialogActions.length)
+          runDialogAction(dialogActions[dialogIndex].action)
+        event.accepted = true
       }
       return
     }
@@ -2508,10 +2517,12 @@ Item {
 
                 delegate: ActionButton {
                   required property var modelData
+                  required property int index
 
                   label: modelData.label
                   primary: modelData.primary === true
                   danger: modelData.danger === true
+                  selected: root.dialogIndex === index
                   fontScale: root.fontScale
                   retro: root.retro
                   ultraRetro: root.ultraRetro

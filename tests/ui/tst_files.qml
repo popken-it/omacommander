@@ -111,6 +111,7 @@ TestCase {
     files.openTransfer(true, ["/tmp/a"], "/tmp/dest", false)
     compare(files.dialog, "transfer")
     compare(files.pendingAction, "move")
+    compare(files.dialogIndex, 1)
     compare(files.dialogActions[0].label, "Cancel")
     compare(files.dialogActions[1].label, "OK")
     verify(files.dialogActions[1].primary)
@@ -140,6 +141,21 @@ TestCase {
                        ok: true, message: "Folder created" })
     compare(pane.path, "/tmp/New Folder")
     compare(files.mkdirTarget, "")
+  }
+
+  function test_dialog_arrows_choose_ok_or_cancel() {
+    files.confirmEmptyTrash()
+    compare(files.dialogIndex, 1)
+    var left = { key: Qt.Key_Left, modifiers: 0, accepted: false }
+    files.handleKey(left)
+    compare(files.dialogIndex, 0)
+    verify(left.accepted)
+    var right = { key: Qt.Key_Right, modifiers: 0, accepted: false }
+    files.handleKey(right)
+    compare(files.dialogIndex, 1)
+    files.handleKey({ key: Qt.Key_Left, modifiers: 0, accepted: false })
+    files.handleKey({ key: Qt.Key_Return, modifiers: 0, accepted: false })
+    compare(files.dialog, "")
   }
 
   function test_retro_palette() {
