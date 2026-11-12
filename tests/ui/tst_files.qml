@@ -158,6 +158,34 @@ TestCase {
     compare(files.dialog, "")
   }
 
+  function test_tab_cycles_dialog_buttons() {
+    files.confirmEmptyTrash()
+    compare(files.dialogIndex, 1)
+    var tab = { key: Qt.Key_Tab, modifiers: 0, accepted: false }
+    files.handleKey(tab)
+    compare(files.dialogIndex, 0)
+    verify(tab.accepted)
+    files.handleKey({ key: Qt.Key_Tab, modifiers: 0, accepted: false })
+    compare(files.dialogIndex, 1)
+    files.closeDialog()
+  }
+
+  function test_tab_reaches_dialog_field() {
+    files.openInput("rename", "Rename", "old.txt", "OK")
+    compare(files.dialogIndex, 1)
+    compare(files.dialogFieldFocus, false)
+    files.stepDialogFocus(false)
+    compare(files.dialogFieldFocus, true)
+    files.stepDialogFocus(false)
+    compare(files.dialogIndex, 0)
+    compare(files.dialogFieldFocus, false)
+    files.stepDialogFocus(true)
+    compare(files.dialogFieldFocus, true)
+    files.stepDialogFocus(true)
+    compare(files.dialogIndex, 1)
+    files.closeDialog()
+  }
+
   function test_retro_palette() {
     files.retro = true
     compare(String(files.panelBg), "#0000a8")

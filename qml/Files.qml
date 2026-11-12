@@ -116,6 +116,7 @@ Item {
   property string dialogText: ""
   property var dialogActions: []
   property int dialogIndex: 0
+  property bool dialogFieldFocus: false
   property string pendingAction: ""
   property var pendingPaths: []
   property var props: ({})
@@ -458,8 +459,8 @@ Item {
                 { label: "OK", action: "accept", primary: true }])
     Qt.callLater(function() {
       dialogField.text = root.transferDest
-      dialogField.forceActiveFocus()
       dialogField.selectAll()
+      card.forceActiveFocus()
     })
   }
 
@@ -674,12 +675,51 @@ Item {
     return 0
   }
 
+  function dialogHasField() {
+    return dialog === "mkdir" || dialog === "rename" || dialog === "transfer"
+  }
+
+  // Tab order starts at OK, then the text field if there is one, then the
+  // other buttons.
+  function dialogSlots() {
+    var slots = []
+    var primary = defaultDialogIndex(dialogActions)
+    if (dialogActions.length > 0) slots.push(primary)
+    if (dialogHasField()) slots.push(-1)
+    for (var i = 0; i < dialogActions.length; i++)
+      if (i !== primary) slots.push(i)
+    return slots
+  }
+
+  function focusDialogAction(index) {
+    dialogIndex = index
+    dialogFieldFocus = false
+    card.forceActiveFocus()
+  }
+
+  function stepDialogFocus(back) {
+    if (dialogActions.length === 0) return
+    var slots = dialogSlots()
+    var current = dialogFieldFocus ? -1 : dialogIndex
+    var at = slots.indexOf(current)
+    if (at < 0) at = 0
+    var target = slots[(at + (back ? -1 : 1) + slots.length) % slots.length]
+    if (target === -1) {
+      dialogFieldFocus = true
+      dialogField.forceActiveFocus()
+      dialogField.selectAll()
+    } else {
+      focusDialogAction(target)
+    }
+  }
+
   function openDialog(kind, title, text, actions) {
     dialog = kind
     dialogTitle = title
     dialogText = text
     dialogActions = actions
     dialogIndex = defaultDialogIndex(actions)
+    dialogFieldFocus = false
     Qt.callLater(function() { card.forceActiveFocus() })
   }
 
@@ -690,10 +730,11 @@ Item {
     dialogActions = [{ label: "Cancel", action: "cancel" },
                      { label: confirmLabel, action: "accept", primary: true }]
     dialogIndex = defaultDialogIndex(dialogActions)
+    dialogFieldFocus = false
     Qt.callLater(function() {
       dialogField.text = initial
-      dialogField.forceActiveFocus()
       dialogField.selectAll()
+      card.forceActiveFocus()
     })
   }
 
@@ -702,6 +743,7 @@ Item {
     dialogActions = []
     dialogText = ""
     dialogIndex = 0
+    dialogFieldFocus = false
     pendingAction = ""
     pendingPaths = []
     transferFromCut = false
@@ -1070,9 +1112,11 @@ Item {
       if (key === Qt.Key_Escape) {
         runDialogAction("cancel")
         event.accepted = true
+      } else if (key === Qt.Key_Tab || key === Qt.Key_Backtab) {
+        stepDialogFocus(key === Qt.Key_Backtab || (event.modifiers & Qt.ShiftModifier) !== 0)
+        event.accepted = true
       } else if ((key === Qt.Key_Left || key === Qt.Key_Right)
-                 && dialog !== "mkdir" && dialog !== "rename" && dialog !== "transfer"
-                 && dialogActions.length > 1) {
+                 && !dialogFieldFocus && dialogActions.length > 1) {
         var step = key === Qt.Key_Left ? -1 : 1
         dialogIndex = (dialogIndex + step + dialogActions.length) % dialogActions.length
         event.accepted = true
@@ -2418,6 +2462,18 @@ Item {
               clip: true
               selectByMouse: true
               onAccepted: root.runDialogAction("accept")
+              onActiveFocusChanged: root.dialogFieldFocus = activeFocus
+
+              Keys.priority: Keys.BeforeItem
+              Keys.onPressed: function(event) {
+                if (event.key === Qt.Key_Tab) {
+                  root.stepDialogFocus(false)
+                  event.accepted = true
+                } else if (event.key === Qt.Key_Backtab) {
+                  root.stepDialogFocus(true)
+                  event.accepted = true
+                }
+              }
             }
           }
 

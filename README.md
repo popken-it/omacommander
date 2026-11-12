@@ -122,8 +122,9 @@ Other keys:
 | `Ctrl+I` | Properties |
 | `Ctrl+W` | Close OmaNCommander |
 
-In a confirmation dialog, `Left`/`Right` picks a button and `Enter` activates
-the highlighted one; OK starts out selected.
+In a confirmation dialog, OK starts out selected. `Left`/`Right` picks a
+button, `Tab`/`Shift+Tab` moves through the buttons and any text field, and
+`Enter` activates the highlighted one.
 
 Two-pane keys, from OMARCHOMANDER:
 
